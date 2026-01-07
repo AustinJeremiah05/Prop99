@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import { useAppKit } from '@reown/appkit/react'
 import { useAccount } from 'wagmi'
+import { useRouter } from 'next/navigation'
 
 export default function Hero() {
   const [rotation, setRotation] = useState(0)
@@ -11,6 +12,7 @@ export default function Hero() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { open } = useAppKit()
   const { isConnected, address } = useAccount()
+  const router = useRouter()
 
   // Debug logging
   useEffect(() => {
@@ -21,9 +23,9 @@ export default function Hero() {
     if (!isConnected) {
       open()
     } else {
-      // Navigate to consumer dashboard or perform consumer action
+      // Navigate to consumer dashboard
       console.log('Consumer wallet connected:', address)
-      // Add your consumer logic here
+      router.push('/consumer/dashboard')
     }
   }
 
@@ -31,9 +33,9 @@ export default function Hero() {
     if (!isConnected) {
       open()
     } else {
-      // Navigate to business dashboard or perform business action
+      // Navigate to business dashboard
       console.log('Business wallet connected:', address)
-      // Add your business logic here
+      router.push('/business/dashboard')
     }
   }
 

@@ -2,8 +2,13 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Menu, X, ChevronLeft, ChevronRight } from "lucide-react"
+import Link from "next/link"
 
-export default function Navigation() {
+interface NavigationProps {
+  variant?: 'default' | 'consumer' | 'business'
+}
+
+export default function Navigation({ variant = 'default' }: NavigationProps) {
   const [scrolled, setScrolled] = useState(false)
   const [activeSection, setActiveSection] = useState("hero")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -12,16 +17,29 @@ export default function Navigation() {
 
   const navScrollRef = useRef<HTMLDivElement>(null)
 
-  const navItems = [
-    { id: "hero", label: "HOME" },
-    { id: "features", label: "FEATURES" },
-    { id: "ai", label: "AI ENGINE" },
-    { id: "vercel", label: "INFRASTRUCTURE" },
-    { id: "contact", label: "CONTACT" },
-    { id: "docs", label: "DOCUMENTATION" },
-    { id: "api", label: "API" },
-    { id: "support", label: "SUPPORT" },
-  ]
+  // Define navigation items based on variant
+  const getNavItems = () => {
+    if (variant === 'consumer') {
+      return [
+        { id: "dashboard", label: "DASHBOARD", href: "/consumer/dashboard" },
+        { id: "buy", label: "BUY", href: "/consumer/buy" },
+      ]
+    }
+    
+    if (variant === 'business') {
+      return [
+        { id: "dashboard", label: "DASHBOARD", href: "/business/dashboard" },
+        { id: "upload", label: "UPLOAD", href: "/business/upload" },
+      ]
+    }
+    
+    // Default navigation for landing page
+    return [
+      { id: "hero", label: "Why fear to buy when Prop99 is here", href: "#hero" },
+    ]
+  }
+
+  const navItems = getNavItems()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -111,18 +129,29 @@ export default function Navigation() {
               className="flex items-center space-x-8 overflow-x-auto scrollbar-hide px-8 py-2 scroll-smooth"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
-              {navItems.map((item) => (
-                <a
-                  key={item.id}
-                  href={`#${item.id}`}
-                  className={`text-sm font-mono tracking-wide transition-all duration-200 hover:text-gray-600 whitespace-nowrap relative ${
-                    activeSection === item.id ? "text-black" : "text-gray-500"
-                  }`}
-                >
-                  {item.label}
-                  {activeSection === item.id && <div className="absolute -bottom-1 left-0 right-0 h-px bg-black"></div>}
-                </a>
-              ))}
+              {navItems.map((item) => {
+                const isExternalLink = item.href.startsWith('/')
+                const content = (
+                  <span
+                    className={`text-sm font-mono tracking-wide transition-all duration-200 hover:text-gray-600 whitespace-nowrap relative ${
+                      activeSection === item.id ? "text-black" : "text-gray-500"
+                    }`}
+                  >
+                    {item.label}
+                    {activeSection === item.id && <div className="absolute -bottom-1 left-0 right-0 h-px bg-black"></div>}
+                  </span>
+                )
+
+                return isExternalLink ? (
+                  <Link key={item.id} href={item.href}>
+                    {content}
+                  </Link>
+                ) : (
+                  <a key={item.id} href={item.href}>
+                    {content}
+                  </a>
+                )
+              })}
             </div>
 
             {showRightScroll && (
@@ -156,18 +185,32 @@ export default function Navigation() {
       {mobileMenuOpen && (
         <div className="md:hidden bg-white/95 backdrop-blur-sm border-t border-gray-200 animate-fadeIn">
           <div className="px-4 py-2 space-y-1 max-h-96 overflow-y-auto">
-            {navItems.map((item) => (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                className={`block py-3 px-2 text-sm font-mono tracking-wide transition-colors rounded ${
-                  activeSection === item.id ? "text-black bg-gray-100 font-bold" : "text-gray-500 hover:text-gray-700"
-                }`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {item.label}
-              </a>
-            ))}
+            {navItems.map((item) => {
+              const isExternalLink = item.href.startsWith('/')
+              const linkClasses = `block py-3 px-2 text-sm font-mono tracking-wide transition-colors rounded ${
+                activeSection === item.id ? "text-black bg-gray-100 font-bold" : "text-gray-500 hover:text-gray-700"
+              }`
+
+              return isExternalLink ? (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className={linkClasses}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <a
+                  key={item.id}
+                  href={item.href}
+                  className={linkClasses}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {item.label}
+                </a>
+              )
+            })}
           </div>
         </div>
       )}

@@ -1,1 +1,1 @@
-#draft
+NEXT_PUBLIC_PROJECT_ID=put_yours
