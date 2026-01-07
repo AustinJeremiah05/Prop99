@@ -2,6 +2,8 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
+import { headers } from "next/headers"
+import ContextProvider from '@/context'
 
 const inter = Inter({
   subsets: ["latin"],
@@ -40,11 +42,14 @@ export const metadata: Metadata = {
     generator: 'v0.app'
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const headersList = await headers()
+  const cookies = headersList.get('cookie')
+
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <head>
@@ -52,7 +57,9 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <meta name="format-detection" content="telephone=no" />
       </head>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        <ContextProvider cookies={cookies}>{children}</ContextProvider>
+      </body>
     </html>
   )
 }

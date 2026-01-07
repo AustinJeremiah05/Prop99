@@ -1,12 +1,41 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
+import { useAppKit } from '@reown/appkit/react'
+import { useAccount } from 'wagmi'
 
 export default function Hero() {
   const [rotation, setRotation] = useState(0)
   const [pulseScale, setPulseScale] = useState(1)
   const [connectionNodes, setConnectionNodes] = useState<Array<{ x: number; y: number; active: boolean }>>([])
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const { open } = useAppKit()
+  const { isConnected, address } = useAccount()
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Wallet Status:', { isConnected, address })
+  }, [isConnected, address])
+
+  const handleConsumerClick = () => {
+    if (!isConnected) {
+      open()
+    } else {
+      // Navigate to consumer dashboard or perform consumer action
+      console.log('Consumer wallet connected:', address)
+      // Add your consumer logic here
+    }
+  }
+
+  const handleBusinessClick = () => {
+    if (!isConnected) {
+      open()
+    } else {
+      // Navigate to business dashboard or perform business action
+      console.log('Business wallet connected:', address)
+      // Add your business logic here
+    }
+  }
 
   useEffect(() => {
     const nodes = [
@@ -230,63 +259,58 @@ export default function Hero() {
           </div>
         </div>
 
-        <div className="mb-12">
+        <div className="mb-8">
           <h1 className="text-8xl font-light tracking-wider mb-6 font-mono">
-            NEXORA<span className="font-bold">SIM</span>
+            PROP<span className="font-bold">99</span>
             <sup className="text-2xl">™</sup>
           </h1>
-          <div className="w-40 h-px bg-black mx-auto mb-8 relative">
+          <div className="w-40 h-px bg-black mx-auto mb-6 relative">
             <div className="absolute left-0 top-0 h-full bg-black animate-pulse" style={{ width: "100%" }}></div>
           </div>
-          <p className="text-2xl font-light tracking-wide text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            MYANMAR'S NEXT-GEN ESIM INFRASTRUCTURE
-            <br />
-            <span className="font-mono text-lg">AI-DRIVEN • GSMA-COMPLIANT • VERCEL-POWERED</span>
-          </p>
         </div>
 
-        <div className="flex justify-center space-x-16 text-sm font-mono mb-12">
-          <div className="flex items-center space-x-2 group">
-            <div className="w-2 h-2 bg-black rounded-full animate-pulse"></div>
-            <span className="group-hover:text-gray-600 transition-colors">SYSTEM ACTIVE</span>
+        {/* Wallet Connection Status */}
+        {isConnected && (
+          <div className="flex justify-center mb-4">
+            <div className="px-4 py-2 bg-green-100 border-2 border-green-500 rounded-lg text-sm font-mono">
+              <span className="text-green-700">✓ Connected: {address?.slice(0, 6)}...{address?.slice(-4)}</span>
+            </div>
           </div>
-          <div className="flex items-center space-x-2 group">
-            <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-            <span className="group-hover:text-gray-600 transition-colors">GSMA CERTIFIED</span>
-          </div>
-          <div className="flex items-center space-x-2 group">
-            <div className="w-2 h-2 bg-black rounded-full animate-ping"></div>
-            <span className="group-hover:text-gray-600 transition-colors">AI ENABLED</span>
-          </div>
-          <div className="flex items-center space-x-2 group">
-            <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
-            <span className="group-hover:text-gray-600 transition-colors">VERCEL EDGE</span>
-          </div>
-        </div>
+        )}
 
-        <div className="grid grid-cols-4 gap-8 max-w-2xl mx-auto">
-          <div className="text-center">
-            <div className="text-3xl font-mono font-bold">99.9%</div>
-            <div className="text-xs text-gray-500 font-mono">UPTIME</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-mono font-bold">{"<30ms"}</div>
-            <div className="text-xs text-gray-500 font-mono">LATENCY</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-mono font-bold">24/7</div>
-            <div className="text-xs text-gray-500 font-mono">SUPPORT</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-mono font-bold">SGP.22</div>
-            <div className="text-xs text-gray-500 font-mono">COMPLIANT</div>
-          </div>
-        </div>
-      </div>
+        {/* Consumer and Business Buttons */}
+        <div className="flex justify-center space-x-8 -mt-2">
+          {/* Consumer Button */}
+          <button 
+            onClick={handleConsumerClick}
+            className="flex justify-around items-center px-3 py-2 bg-white cursor-pointer shadow-[3px_4px_0px_black] border-[3px] border-black rounded-xl relative overflow-hidden z-10 transition-all duration-250 hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_2px_0px_black] active:saturate-75 before:content-[''] before:absolute before:inset-0 before:bg-gray-100 before:-z-10 before:-translate-x-full before:transition-transform before:duration-250 hover:before:translate-x-0 group">
+            <div className="relative flex justify-start items-center overflow-hidden text-lg font-semibold">
+              <span className="relative transition-all duration-250">
+                {isConnected ? 'Consumer Dashboard' : 'Consumer'}
+              </span>
+            </div>
+            <div className="px-3 py-3 ml-3 border-[3px] border-black rounded-full bg-white relative overflow-hidden transition-all duration-250 z-10 group-hover:translate-x-1.5 active:translate-x-2 before:content-[''] before:absolute before:inset-0 before:rounded-full before:bg-gray-100 before:-translate-x-full before:-z-10 before:transition-transform before:duration-250 before:ease-in-out group-hover:before:translate-x-0">
+              <svg width={20} height={20} viewBox="0 0 45 38" fill="none" xmlns="http://www.w3.org/2000/svg" className="align-middle">
+                <path d="M43.7678 20.7678C44.7441 19.7915 44.7441 18.2085 43.7678 17.2322L27.8579 1.32233C26.8816 0.34602 25.2986 0.34602 24.3223 1.32233C23.346 2.29864 23.346 3.88155 24.3223 4.85786L38.4645 19L24.3223 33.1421C23.346 34.1184 23.346 35.7014 24.3223 36.6777C25.2986 37.654 26.8816 37.654 27.8579 36.6777L43.7678 20.7678ZM0 21.5L42 21.5V16.5L0 16.5L0 21.5Z" fill="black" />
+              </svg>
+            </div>
+          </button>
 
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
-        <div className="w-6 h-10 border-2 border-black rounded-full flex justify-center">
-          <div className="w-1 h-3 bg-black rounded-full mt-2 animate-bounce"></div>
+          {/* Business Button */}
+          <button 
+            onClick={handleBusinessClick}
+            className="flex justify-around items-center px-3 py-2 bg-white cursor-pointer shadow-[3px_4px_0px_black] border-[3px] border-black rounded-xl relative overflow-hidden z-10 transition-all duration-250 hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_2px_0px_black] active:saturate-75 before:content-[''] before:absolute before:inset-0 before:bg-gray-100 before:-z-10 before:-translate-x-full before:transition-transform before:duration-250 hover:before:translate-x-0 group">
+            <div className="relative flex justify-start items-center overflow-hidden text-lg font-semibold">
+              <span className="relative transition-all duration-250">
+                {isConnected ? 'Business Dashboard' : 'Business'}
+              </span>
+            </div>
+            <div className="px-3 py-3 ml-3 border-[3px] border-black rounded-full bg-white relative overflow-hidden transition-all duration-250 z-10 group-hover:translate-x-1.5 active:translate-x-2 before:content-[''] before:absolute before:inset-0 before:rounded-full before:bg-gray-100 before:-translate-x-full before:-z-10 before:transition-transform before:duration-250 before:ease-in-out group-hover:before:translate-x-0">
+              <svg width={20} height={20} viewBox="0 0 45 38" fill="none" xmlns="http://www.w3.org/2000/svg" className="align-middle">
+                <path d="M43.7678 20.7678C44.7441 19.7915 44.7441 18.2085 43.7678 17.2322L27.8579 1.32233C26.8816 0.34602 25.2986 0.34602 24.3223 1.32233C23.346 2.29864 23.346 3.88155 24.3223 4.85786L38.4645 19L24.3223 33.1421C23.346 34.1184 23.346 35.7014 24.3223 36.6777C25.2986 37.654 26.8816 37.654 27.8579 36.6777L43.7678 20.7678ZM0 21.5L42 21.5V16.5L0 16.5L0 21.5Z" fill="black" />
+              </svg>
+            </div>
+          </button>
         </div>
       </div>
     </section>

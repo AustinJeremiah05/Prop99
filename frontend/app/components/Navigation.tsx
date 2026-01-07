@@ -91,7 +91,7 @@ export default function Navigation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="font-mono font-bold text-xl tracking-wider shrink-0">
-            NEXORA<span className="font-light">SIM</span>
+            PROP<span className="font-light">99</span>
             <sup className="text-xs">™</sup>
           </div>
 
