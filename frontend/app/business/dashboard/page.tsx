@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import Navigation from '../../components/Navigation'
 import { routerConfig, AssetTypeId } from '../../../config/onchain'
-import { useWriteContract, usePublicClient } from 'wagmi'
+import { useWriteContract, usePublicClient, useReadContract } from 'wagmi'
 import { parseEther } from 'viem'
+import AssetRequestCard from './AssetRequestCard'
 
 export default function BusinessDashboard() {
   const { isConnected, address } = useAccount()
@@ -31,6 +32,15 @@ export default function BusinessDashboard() {
   const [docFiles, setDocFiles] = useState<File[]>([])
   const { writeContractAsync } = useWriteContract()
   const publicClient = usePublicClient()
+
+  // Fetch user's request IDs
+  const { data: userRequestIds } = useReadContract({
+    ...routerConfig,
+    functionName: 'getUserRequests',
+    args: [address],
+  })
+
+  const requests = (userRequestIds as bigint[] | undefined) || []
   const photoPreviews = useMemo(() =>
     photoFiles.map((f) => ({ url: URL.createObjectURL(f), name: f.name })),
     [photoFiles]
@@ -106,33 +116,17 @@ export default function BusinessDashboard() {
         </div>
 
         {/* Dashboard Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Bulk Asset Upload Card */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Create Asset Card */}
           <div className="p-6 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_black] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0px_black] transition-all">
-            <h3 className="text-xl font-mono font-bold mb-3">Bulk Upload</h3>
-            <p className="text-gray-600 mb-4">Submit multiple assets for verification</p>
+            <h3 className="text-xl font-mono font-bold mb-3">Create Asset</h3>
+            <p className="text-gray-600 mb-4">Submit assets for AI verification</p>
             <button
               className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-mono"
               onClick={() => setShowUploadModal(true)}
             >
               Upload Assets
             </button>
-          </div>
-
-          {/* Asset Portfolio Card */}
-          <div className="p-6 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_black] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0px_black] transition-all">
-            <h3 className="text-xl font-mono font-bold mb-3">Asset Portfolio</h3>
-            <p className="text-gray-600 mb-4">Manage your business assets</p>
-            <div className="text-4xl font-bold font-mono">0</div>
-            <p className="text-sm text-gray-500 mt-2">Total Assets</p>
-          </div>
-
-          {/* Oracle Analytics Card */}
-          <div className="p-6 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_black] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0px_black] transition-all">
-            <h3 className="text-xl font-mono font-bold mb-3">Oracle Analytics</h3>
-            <p className="text-gray-600 mb-4">AI verification insights</p>
-            <div className="text-4xl font-bold font-mono">0</div>
-            <p className="text-sm text-gray-500 mt-2">Verifications</p>
           </div>
 
           {/* Total Valuation Card */}
@@ -142,48 +136,22 @@ export default function BusinessDashboard() {
             <div className="text-4xl font-bold font-mono">$0</div>
             <p className="text-sm text-gray-500 mt-2">USD</p>
           </div>
+        </div>
 
-          {/* API Access Card */}
-          <div className="p-6 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_black] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0px_black] transition-all">
-            <h3 className="text-xl font-mono font-bold mb-3">API Integration</h3>
-            <p className="text-gray-600 mb-4">Access oracle data programmatically</p>
-            <button className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-mono">
-              View API Keys
-            </button>
-          </div>
-
-          {/* Team Management Card */}
-          <div className="p-6 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_black] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0px_black] transition-all">
-            <h3 className="text-xl font-mono font-bold mb-3">Team Management</h3>
-            <p className="text-gray-600 mb-4">Manage team access</p>
-            <div className="text-4xl font-bold font-mono">1</div>
-            <p className="text-sm text-gray-500 mt-2">Team Members</p>
-          </div>
-
-          {/* Compliance Reports Card */}
-          <div className="p-6 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_black] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0px_black] transition-all">
-            <h3 className="text-xl font-mono font-bold mb-3">Compliance</h3>
-            <p className="text-gray-600 mb-4">Regulatory reports & audits</p>
-            <button className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-mono">
-              View Reports
-            </button>
-          </div>
-
-          {/* Transaction History Card */}
-          <div className="p-6 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_black] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0px_black] transition-all">
-            <h3 className="text-xl font-mono font-bold mb-3">Transaction History</h3>
-            <p className="text-gray-600 mb-4">On-chain activity log</p>
-            <p className="text-sm text-gray-500 italic">No recent transactions</p>
-          </div>
-
-          {/* DeFi Integration Card */}
-          <div className="p-6 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_black] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0px_black] transition-all">
-            <h3 className="text-xl font-mono font-bold mb-3">DeFi Integration</h3>
-            <p className="text-gray-600 mb-4">Use assets as collateral</p>
-            <button className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-mono">
-              Explore DeFi
-            </button>
-          </div>
+        {/* Your Assets Section */}
+        <div className="mt-8">
+          <h2 className="text-3xl font-mono font-bold mb-6">Your Assets</h2>
+          {requests.length === 0 ? (
+            <div className="p-12 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_black] text-center">
+              <p className="text-gray-500 font-mono">No assets submitted yet. Click "Upload Assets" to get started.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {requests.map((reqId) => (
+                <AssetRequestCard key={reqId.toString()} requestId={reqId} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
