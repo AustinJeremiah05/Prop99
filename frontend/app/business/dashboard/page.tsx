@@ -123,7 +123,7 @@ export default function BusinessDashboard() {
             <p className="text-gray-600 mb-4">Submit assets for AI verification</p>
             <button
               className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-mono"
-              onClick={() => setShowUploadModal(true)}
+              onClick={() => router.push('/business/upload')}
             >
               Upload Assets
             </button>

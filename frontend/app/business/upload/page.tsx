@@ -2,23 +2,51 @@
 
 import { useAccount } from 'wagmi'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Navigation from '../../components/Navigation'
-import { Upload, FileText, Image, File, X } from 'lucide-react'
+import { routerConfig, AssetTypeId } from '../../../config/onchain'
+import { useWriteContract, usePublicClient } from 'wagmi'
+import { parseEther } from 'viem'
 
 export default function UploadPage() {
   const { isConnected, address } = useAccount()
   const router = useRouter()
-  const [formData, setFormData] = useState({
+  const [formError, setFormError] = useState('')
+  const [formValues, setFormValues] = useState({
     assetName: '',
-    assetType: 'real-estate',
+    assetType: 'REAL_ESTATE',
     location: '',
-    valuation: '',
-    description: '',
-    ownership: '',
+    gpsLat: '',
+    gpsLng: '',
+    sizeSqft: '',
+    bedrooms: '',
+    bathrooms: '',
+    yearBuilt: '',
+    estValue: '',
+    notes: '',
+    agreeTerms: false
   })
-  const [files, setFiles] = useState<File[]>([])
-  const [dragActive, setDragActive] = useState(false)
+  const [photoFiles, setPhotoFiles] = useState<File[]>([])
+  const [docFiles, setDocFiles] = useState<File[]>([])
+  const { writeContractAsync } = useWriteContract()
+  const publicClient = usePublicClient()
+
+  const photoPreviews = useMemo(() =>
+    photoFiles.map((f) => ({ url: URL.createObjectURL(f), name: f.name })),
+    [photoFiles]
+  )
+
+  useEffect(() => {
+    return () => {
+      photoPreviews.forEach((p) => URL.revokeObjectURL(p.url))
+    }
+  }, [photoPreviews])
+
+  function appendFiles(existing: File[], incoming: File[]) {
+    const seen = new Set(existing.map((f) => `${f.name}-${f.size}-${f.lastModified}`))
+    const deduped = incoming.filter((f) => !seen.has(`${f.name}-${f.size}-${f.lastModified}`))
+    return [...existing, ...deduped]
+  }
 
   useEffect(() => {
     if (!isConnected) {
@@ -28,50 +56,6 @@ export default function UploadPage() {
 
   if (!isConnected) {
     return null
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true)
-    } else if (e.type === "dragleave") {
-      setDragActive(false)
-    }
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const newFiles = Array.from(e.dataTransfer.files)
-      setFiles(prev => [...prev, ...newFiles])
-    }
-  }
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const newFiles = Array.from(e.target.files)
-      setFiles(prev => [...prev, ...newFiles])
-    }
-  }
-
-  const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log('Form Data:', formData)
-    console.log('Files:', files)
-    // TODO: Submit to Oracle for AI verification
   }
 
   return (
@@ -103,254 +87,328 @@ export default function UploadPage() {
 
       {/* Upload Content */}
       <div className="relative z-10 pt-24 px-6 max-w-6xl mx-auto pb-12">
-        <div className="mb-8">
-          <h1 className="text-6xl font-light tracking-wider mb-4 font-mono">
-            ASSET <span className="font-bold">UPLOAD</span>
-          </h1>
-          <div className="w-64 h-px bg-black mb-8 relative">
-            <div className="absolute left-0 top-0 h-full bg-black animate-pulse" style={{ width: "100%" }}></div>
-          </div>
-          <p className="text-gray-600 font-mono text-sm">
-            Submit your real-world assets for AI oracle verification on Mantle Network
-          </p>
-        </div>
-
-        {/* Upload Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Asset Information Card */}
-          <div className="p-8 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_black]">
-            <h2 className="text-2xl font-mono font-bold mb-6">Asset Information</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Asset Name */}
-              <div>
-                <label className="block text-sm font-mono font-bold mb-2">
-                  Asset Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="assetName"
-                  value={formData.assetName}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Downtown Office Building"
-                  className="w-full px-4 py-3 border-2 border-black rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-black"
-                  required
-                />
-              </div>
-
-              {/* Asset Type */}
-              <div>
-                <label className="block text-sm font-mono font-bold mb-2">
-                  Asset Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="assetType"
-                  value={formData.assetType}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border-2 border-black rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-black"
-                  required
-                >
-                  <option value="real-estate">Real Estate</option>
-                  <option value="art">Art & Collectibles</option>
-                  <option value="commodity">Commodity</option>
-                  <option value="vehicle">Vehicle</option>
-                  <option value="equipment">Equipment</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-
-              {/* Location */}
-              <div>
-                <label className="block text-sm font-mono font-bold mb-2">
-                  Location <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleInputChange}
-                  placeholder="e.g., New York, USA"
-                  className="w-full px-4 py-3 border-2 border-black rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-black"
-                  required
-                />
-              </div>
-
-              {/* Estimated Valuation */}
-              <div>
-                <label className="block text-sm font-mono font-bold mb-2">
-                  Estimated Valuation (USD) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="valuation"
-                  value={formData.valuation}
-                  onChange={handleInputChange}
-                  placeholder="e.g., 1000000"
-                  className="w-full px-4 py-3 border-2 border-black rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-black"
-                  required
-                />
-              </div>
-
-              {/* Ownership Proof */}
-              <div>
-                <label className="block text-sm font-mono font-bold mb-2">
-                  Ownership Document ID <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="ownership"
-                  value={formData.ownership}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Title Deed #123456"
-                  className="w-full px-4 py-3 border-2 border-black rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-black"
-                  required
-                />
-              </div>
+        <div className="relative w-full bg-white border-2 border-black rounded-2xl shadow-[8px_8px_0px_black] p-8">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <p className="text-sm font-mono text-gray-600">New Verification Request</p>
+              <h2 className="text-3xl font-mono font-bold">Upload Assets</h2>
             </div>
-
-            {/* Description */}
-            <div className="mt-6">
-              <label className="block text-sm font-mono font-bold mb-2">
-                Description <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                placeholder="Provide detailed description of the asset..."
-                rows={4}
-                className="w-full px-4 py-3 border-2 border-black rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-black resize-none"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Document Upload Card */}
-          <div className="p-8 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_black]">
-            <h2 className="text-2xl font-mono font-bold mb-6">Upload Documents</h2>
-            
-            {/* Drag & Drop Zone */}
-            <div
-              className={`border-2 border-dashed rounded-xl p-12 text-center transition-all ${
-                dragActive 
-                  ? 'border-black bg-gray-50' 
-                  : 'border-gray-300 hover:border-black'
-              }`}
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
+            <button
+              aria-label="Go back to dashboard"
+              className="text-black hover:text-gray-700 font-bold text-xl"
+              onClick={() => router.push('/business/dashboard')}
             >
-              <Upload className="mx-auto mb-4" size={48} strokeWidth={1.5} />
-              <p className="font-mono text-lg mb-2">
-                Drag & drop files here
-              </p>
-              <p className="text-gray-500 text-sm font-mono mb-4">
-                or click to browse
-              </p>
+              ×
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <label className="flex flex-col gap-2 font-mono text-sm">
+              Asset Name
               <input
-                type="file"
-                multiple
-                onChange={handleFileChange}
-                className="hidden"
-                id="file-upload"
-                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                className="border-2 border-black rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                placeholder="e.g., Sunset Villa"
+                value={formValues.assetName}
+                onChange={(e) => setFormValues(v => ({ ...v, assetName: e.target.value }))}
               />
-              <label
-                htmlFor="file-upload"
-                className="inline-block px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-mono cursor-pointer"
+            </label>
+
+            <label className="flex flex-col gap-2 font-mono text-sm">
+              Asset Type
+              <select
+                className="border-2 border-black rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black bg-white"
+                value={formValues.assetType}
+                onChange={(e) => setFormValues(v => ({ ...v, assetType: e.target.value }))}
               >
-                Browse Files
+                <option value="REAL_ESTATE">Real Estate</option>
+                <option value="INVOICE">Invoice</option>
+                <option value="VEHICLE">Vehicle</option>
+                <option value="ART">Art</option>
+                <option value="COMMODITY">Commodity</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-2 font-mono text-sm md:col-span-2">
+              Location / Address
+              <input
+                className="border-2 border-black rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                placeholder="123 Market St, San Francisco, CA"
+                value={formValues.location}
+                onChange={(e) => setFormValues(v => ({ ...v, location: e.target.value }))}
+              />
+            </label>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+              <label className="flex flex-col gap-2 font-mono text-sm">
+                GPS Latitude
+                <input
+                  className="border-2 border-black rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="40.7128"
+                  value={formValues.gpsLat}
+                  onChange={(e) => setFormValues(v => ({ ...v, gpsLat: e.target.value }))}
+                />
               </label>
-              <p className="text-xs text-gray-400 font-mono mt-4">
-                Supported: PDF, JPG, PNG, DOC, DOCX (Max 10MB per file)
-              </p>
+              <label className="flex flex-col gap-2 font-mono text-sm">
+                GPS Longitude
+                <input
+                  className="border-2 border-black rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="-74.0060"
+                  value={formValues.gpsLng}
+                  onChange={(e) => setFormValues(v => ({ ...v, gpsLng: e.target.value }))}
+                />
+              </label>
             </div>
 
-            {/* File List */}
-            {files.length > 0 && (
-              <div className="mt-6 space-y-3">
-                <h3 className="font-mono font-bold text-lg">Uploaded Files ({files.length})</h3>
-                {files.map((file, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg"
-                  >
-                    <div className="flex items-center space-x-3">
-                      {file.type.includes('image') ? (
-                        <Image size={24} />
-                      ) : file.type.includes('pdf') ? (
-                        <FileText size={24} />
-                      ) : (
-                        <File size={24} />
-                      )}
-                      <div>
-                        <p className="font-mono font-medium">{file.name}</p>
-                        <p className="text-xs text-gray-500 font-mono">
-                          {(file.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:col-span-2">
+              <label className="flex flex-col gap-2 font-mono text-sm">
+                Size (sqft)
+                <input
+                  className="border-2 border-black rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="2400"
+                  value={formValues.sizeSqft}
+                  onChange={(e) => setFormValues(v => ({ ...v, sizeSqft: e.target.value }))}
+                />
+              </label>
+              <label className="flex flex-col gap-2 font-mono text-sm">
+                Bedrooms
+                <input
+                  className="border-2 border-black rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="3"
+                  value={formValues.bedrooms}
+                  onChange={(e) => setFormValues(v => ({ ...v, bedrooms: e.target.value }))}
+                />
+              </label>
+              <label className="flex flex-col gap-2 font-mono text-sm">
+                Bathrooms
+                <input
+                  className="border-2 border-black rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="2"
+                  value={formValues.bathrooms}
+                  onChange={(e) => setFormValues(v => ({ ...v, bathrooms: e.target.value }))}
+                />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+              <label className="flex flex-col gap-2 font-mono text-sm">
+                Year Built
+                <input
+                  className="border-2 border-black rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="2010"
+                  value={formValues.yearBuilt}
+                  onChange={(e) => setFormValues(v => ({ ...v, yearBuilt: e.target.value }))}
+                />
+              </label>
+              <label className="flex flex-col gap-2 font-mono text-sm">
+                Estimated Value (optional, USD)
+                <input
+                  className="border-2 border-black rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="450000"
+                  value={formValues.estValue}
+                  onChange={(e) => setFormValues(v => ({ ...v, estValue: e.target.value }))}
+                />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+              <label className="flex flex-col gap-2 font-mono text-sm">
+                Property Photos (min 3)
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="border-2 border-dashed border-black rounded-lg px-3 py-3 cursor-pointer bg-gray-50"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || [])
+                    setPhotoFiles((prev) => appendFiles(prev, files))
+                    if (e.currentTarget) e.currentTarget.value = ''
+                  }}
+                />
+                <span className="text-xs text-gray-600">Selected: {photoFiles.length} file(s) — you can add more anytime</span>
+
+                {photoFiles.length > 0 && (
+                  <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {photoPreviews.map((p, idx) => (
+                      <div key={`${p.name}-${idx}`} className="relative border-2 border-black rounded-lg overflow-hidden">
+                        <img src={p.url} alt={p.name} className="w-full h-28 object-cover" />
+                        <button
+                          className="absolute top-1 right-1 bg-white border-2 border-black rounded px-1 text-xs font-mono hover:bg-gray-100"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            setPhotoFiles((prev) => prev.filter((_, i) => i !== idx))
+                          }}
+                        >
+                          Remove
+                        </button>
                       </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(index)}
-                      className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-                    >
-                      <X size={20} />
-                    </button>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
+                )}
+              </label>
 
-            {/* Document Types Info */}
-            <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-              <h3 className="font-mono font-bold text-sm mb-2">Required Documents:</h3>
-              <ul className="text-sm text-gray-600 font-mono space-y-1">
-                <li>• Ownership certificate or title deed</li>
-                <li>• Property valuation report (if available)</li>
-                <li>• Recent photographs of the asset</li>
-                <li>• Any relevant compliance certificates</li>
-                <li>• Legal documentation (optional)</li>
-              </ul>
+              <label className="flex flex-col gap-2 font-mono text-sm">
+                Documents (PDF or images, add as many as needed)
+                <input
+                  type="file"
+                  accept="application/pdf,image/*"
+                  multiple
+                  className="border-2 border-dashed border-black rounded-lg px-3 py-3 cursor-pointer bg-gray-50"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || [])
+                    setDocFiles((prev) => appendFiles(prev, files))
+                    if (e.currentTarget) e.currentTarget.value = ''
+                  }}
+                />
+                <span className="text-xs text-gray-600">Selected: {docFiles.length} document(s) — unlimited uploads supported</span>
+
+                {docFiles.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {docFiles.map((f, idx) => (
+                      <div key={`${f.name}-${f.size}-${idx}`} className="flex items-center justify-between border-2 border-black rounded-lg px-3 py-2 bg-white">
+                        <div className="truncate pr-3">
+                          <span className="mr-2">•</span>
+                          <span className="truncate align-middle">{f.name}</span>
+                          <span className="ml-2 text-xs text-gray-600">({Math.ceil(f.size / 1024)} KB)</span>
+                        </div>
+                        <button
+                          className="bg-white border-2 border-black rounded px-2 text-xs font-mono hover:bg-gray-100"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            setDocFiles((prev) => prev.filter((_, i) => i !== idx))
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </label>
             </div>
 
-            {/* Create Asset Button */}
-            <div className="mt-6 flex justify-center">
-              <button
-                type="button"
-                className="px-8 py-4 bg-white text-black border-2 border-black rounded-lg hover:bg-gray-50 transition-colors font-mono font-bold text-lg shadow-[2px_2px_0px_rgba(0,0,0,0.3)]"
-              >
-                Create Asset
-              </button>
-            </div>
+            <label className="flex flex-col gap-2 font-mono text-sm md:col-span-2">
+              Notes (optional)
+              <textarea
+                className="border-2 border-black rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black min-h-[80px]"
+                placeholder="Any context for the verifiers"
+                value={formValues.notes}
+                onChange={(e) => setFormValues(v => ({ ...v, notes: e.target.value }))}
+              />
+            </label>
           </div>
 
-          {/* Submit Section */}
-          <div className="p-8 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_black]">
-            <h2 className="text-2xl font-mono font-bold mb-4">Oracle Verification</h2>
-            <p className="text-gray-600 font-mono text-sm mb-6">
-              Your asset will be verified by our hybrid AI oracle system using Claude, GPT-4, and Gemini 
-              for multi-layer authentication. The verification process typically takes 24-48 hours.
-            </p>
-            
-            <div className="flex items-center space-x-4">
-              <button
-                type="submit"
-                className="px-8 py-4 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-mono font-bold text-lg shadow-[2px_2px_0px_rgba(0,0,0,0.3)]"
-              >
-                Submit for Verification
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push('/business/dashboard')}
-                className="px-8 py-4 bg-white border-2 border-black text-black rounded-lg hover:bg-gray-50 transition-colors font-mono"
-              >
-                Cancel
-              </button>
-            </div>
+          <div className="flex flex-col gap-2 font-mono text-sm mb-4">
+            <label className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                className="h-4 w-4 border-2 border-black"
+                checked={formValues.agreeTerms}
+                onChange={(e) => setFormValues(v => ({ ...v, agreeTerms: e.target.checked }))}
+              />
+              I confirm the information is accurate and agree to verification fees.
+            </label>
+            <div className="text-xs text-gray-600">Estimated on-chain fee: ~0.01 MNT + gas. Files will upload to IPFS after clicking submit.</div>
           </div>
-        </form>
+
+          {formError && (
+            <div className="mb-4 text-red-600 font-mono text-sm">{formError}</div>
+          )}
+
+          <div className="flex items-center justify-end gap-3">
+            <button
+              className="px-4 py-2 font-mono border-2 border-black rounded-lg bg-white hover:bg-gray-100"
+              onClick={() => router.push('/business/dashboard')}
+            >
+              Cancel
+            </button>
+            <button
+              className="px-4 py-2 font-mono bg-black text-white rounded-lg hover:bg-gray-800"
+              onClick={async () => {
+                const missingBasics = !formValues.assetName || !formValues.location
+                const missingGeo = !formValues.gpsLat || !formValues.gpsLng
+                const notEnoughPhotos = photoFiles.length < 3
+                const noDocs = docFiles.length < 1
+                const noTerms = !formValues.agreeTerms
+
+                if (missingBasics || missingGeo || notEnoughPhotos || noDocs || noTerms) {
+                  const errors = []
+                  if (missingBasics) errors.push('asset name and address')
+                  if (missingGeo) errors.push('GPS coordinates')
+                  if (notEnoughPhotos) errors.push('at least 3 photos')
+                  if (noDocs) errors.push('at least 1 document')
+                  if (noTerms) errors.push('agreeing to terms')
+                  setFormError(`Please add ${errors.join(', ')}.`)
+                  return
+                }
+
+                try {
+                  setFormError('')
+                  // 1) Upload files + metadata to IPFS via API route
+                  const meta = {
+                    owner: address,
+                    asset: { type: formValues.assetType, name: formValues.assetName },
+                    location: {
+                      address: formValues.location,
+                      gps: { lat: Number(formValues.gpsLat), lng: Number(formValues.gpsLng) },
+                    },
+                    property: {
+                      sizeSqft: Number(formValues.sizeSqft || 0),
+                      bedrooms: Number(formValues.bedrooms || 0),
+                      bathrooms: Number(formValues.bathrooms || 0),
+                      yearBuilt: Number(formValues.yearBuilt || 0),
+                      estValue: formValues.estValue ? Number(formValues.estValue) : undefined,
+                      notes: formValues.notes || undefined,
+                    },
+                    uiVersion: 'business-upload@1',
+                  }
+
+                  const fd = new FormData()
+                  photoFiles.forEach((f) => fd.append('photos', f))
+                  docFiles.forEach((f) => fd.append('documents', f))
+                  fd.append('metadata', JSON.stringify(meta))
+
+                  const res = await fetch('/api/ipfs/upload', { method: 'POST', body: fd })
+                  if (!res.ok) {
+                    const t = await res.text()
+                    throw new Error(`Upload failed: ${t}`)
+                  }
+                  const { metadataCid } = await res.json()
+
+                  // 2) Determine fee
+                  let fee = parseEther('0.01')
+                  try {
+                    const onchainFee = await publicClient?.readContract({
+                      ...routerConfig,
+                      functionName: 'verificationFee',
+                      args: [],
+                    })
+                    if (onchainFee) fee = onchainFee as any
+                  } catch {}
+
+                  // 3) Call OracleRouter.requestVerification
+                  const locationString = `${formValues.location} | ${formValues.gpsLat},${formValues.gpsLng}`
+                  await writeContractAsync({
+                    ...routerConfig,
+                    functionName: 'requestVerification',
+                    args: [
+                      AssetTypeId[formValues.assetType as any] as unknown as number,
+                      locationString,
+                      [metadataCid],
+                    ],
+                    value: fee,
+                  })
+
+                  router.push('/business/dashboard')
+                } catch (err: any) {
+                  setFormError(err?.message || 'Submission failed')
+                }
+              }}
+            >
+              Submit for Verification
+            </button>
+          </div>
+        </div>
       </div>
     </main>
   )

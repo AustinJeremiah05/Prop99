@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useReadContract } from 'wagmi'
 import { routerConfig } from '../../../config/onchain'
 
@@ -15,21 +15,47 @@ const StatusBadge = ({ status }: { status: number }) => {
 }
 
 export default function AssetRequestCard({ requestId }: { requestId: bigint }) {
-  const [showDetails, setShowDetails] = useState(false)
+  const [showModal, setShowModal] = useState(false)
   const [ipfsData, setIpfsData] = useState<any>(null)
   const [ipfsLoading, setIpfsLoading] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  
   const { data: request } = useReadContract({
     ...routerConfig,
     functionName: 'getRequest',
     args: [requestId],
   })
 
-  // Fetch IPFS metadata when details are shown
+  // Memoize request data to prevent re-renders
+  const req = useMemo(() => request as any, [request])
+  const assetTypes = useMemo(() => ['Real Estate', 'Invoice', 'Vehicle', 'Art', 'Commodity', 'Other'], [])
+  const assetName = useMemo(() => assetTypes[req?.assetType || 0] || 'Unknown', [assetTypes, req?.assetType])
+  const date = useMemo(() => req?.timestamp ? new Date(Number(req.timestamp) * 1000).toLocaleDateString() : '', [req?.timestamp])
+
+  // Memoized callbacks to prevent re-renders
+  const handleImageClick = useCallback((imageUrl: string) => {
+    setSelectedImage(imageUrl)
+  }, [])
+
+  const handleCloseModal = useCallback(() => {
+    setShowModal(false)
+  }, [])
+
+  const handleCloseLightbox = useCallback(() => {
+    setSelectedImage(null)
+  }, [])
+
+  // Fetch IPFS metadata only once when modal opens
   useEffect(() => {
-    if (!showDetails || ipfsData || !request) return
+    if (!showModal) {
+      return
+    }
     
-    const req = request as any
+    if (ipfsData || !req) return
+    
     if (!req.ipfsHashes || req.ipfsHashes.length === 0) return
+
+    let isCancelled = false
 
     const fetchIPFS = async () => {
       try {
@@ -38,17 +64,28 @@ export default function AssetRequestCard({ requestId }: { requestId: bigint }) {
         const res = await fetch(`/api/ipfs/fetch?hash=${ipfsHash}`)
         if (!res.ok) throw new Error('Failed to fetch IPFS data')
         const data = await res.json()
-        setIpfsData(data)
+        
+        if (!isCancelled) {
+          setIpfsData(data)
+        }
       } catch (err) {
         console.error('Failed to fetch IPFS:', err)
-        setIpfsData(null)
+        if (!isCancelled) {
+          setIpfsData(null)
+        }
       } finally {
-        setIpfsLoading(false)
+        if (!isCancelled) {
+          setIpfsLoading(false)
+        }
       }
     }
 
     fetchIPFS()
-  }, [showDetails, request, ipfsData])
+
+    return () => {
+      isCancelled = true
+    }
+  }, [showModal, req, ipfsData])
 
   if (!request) {
     return (
@@ -59,38 +96,26 @@ export default function AssetRequestCard({ requestId }: { requestId: bigint }) {
     )
   }
 
-  // Access struct properties directly (returned as object, not array)
-  const req = request as any
-  
-  const assetTypes = ['Real Estate', 'Invoice', 'Vehicle', 'Art', 'Commodity', 'Other']
-  const assetName = assetTypes[req.assetType || 0] || 'Unknown'
-  const date = new Date(Number(req.timestamp) * 1000).toLocaleDateString()
-
-  const agentStatuses = [
-    { label: 'Agent 1', status: 'Pending' },
-    { label: 'Agent 2', status: 'Pending' },
-    { label: 'Agent 3', status: 'Pending' },
-  ] as const
-
   return (
-    <div className="p-6 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_black] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0px_black] transition-all">
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <h3 className="text-lg font-mono font-bold">Request #{req.requestId?.toString() || requestId}</h3>
-          <p className="text-sm text-gray-600">{assetName}</p>
+    <>
+      <div className="p-6 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_black] hover:translate-x-1 hover:translate-y-1 hover:shadow-[2px_2px_0px_black] transition-all">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <h3 className="text-lg font-mono font-bold">Request #{req.requestId?.toString() || requestId.toString()}</h3>
+            <p className="text-sm text-gray-600">{assetName}</p>
+          </div>
+          <StatusBadge status={req.status} />
         </div>
-        <StatusBadge status={req.status} />
-      </div>
-      
-      <div className="space-y-2 text-sm font-mono mb-4">
-        <div className="flex justify-between">
-          <span className="text-gray-600">Location:</span>
-          <span className="truncate ml-2 text-right max-w-[60%]">{req.location}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-600">Submitted:</span>
-          <span>{date}</span>
-        </div>
+        
+        <div className="space-y-2 text-sm font-mono mb-4">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Location:</span>
+            <span className="truncate ml-2 text-right max-w-[60%]">{req.location}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Submitted:</span>
+            <span>{date}</span>
+          </div>
         {req.valuation > BigInt(0) && (
           <div className="flex justify-between">
             <span className="text-gray-600">Valuation:</span>
@@ -105,125 +130,257 @@ export default function AssetRequestCard({ requestId }: { requestId: bigint }) {
         )}
       </div>
 
-      <button
-        onClick={() => setShowDetails((prev) => !prev)}
-        className="w-full px-3 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-mono text-sm"
-      >
-        {showDetails ? 'Hide Details' : 'View Details'}
-      </button>
+        <button
+          onClick={() => setShowModal(true)}
+          className="w-full px-3 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-mono text-sm"
+        >
+          View Details
+        </button>
+      </div>
 
-      {showDetails && (
-        <div className="mt-4 space-y-4 font-mono text-sm">
-          {/* Basic Request Info */}
-          <div className="p-3 border border-black rounded-lg bg-gray-50">
-            <div className="text-xs font-semibold text-gray-600 mb-2">REQUEST INFO</div>
-            <div className="flex justify-between"><span className="text-gray-600">Request ID</span><span>{req.requestId?.toString() || requestId.toString()}</span></div>
-            <div className="flex justify-between"><span className="text-gray-600">Owner</span><span className="truncate ml-2 text-right max-w-[60%]">{req.owner}</span></div>
-            <div className="flex justify-between"><span className="text-gray-600">Status</span><span>{StatusBadge && <StatusBadge status={req.status} />}</span></div>
-            <div className="flex justify-between"><span className="text-gray-600">Submitted</span><span>{date}</span></div>
-          </div>
-
-          {/* Asset Details from IPFS */}
-          {ipfsLoading ? (
-            <div className="p-3 border border-black rounded-lg bg-gray-50 animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+      {/* Full Screen Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 flex items-center justify-center p-4" onClick={handleCloseModal}>
+          <div className="bg-white rounded-2xl border-4 border-black shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b-4 border-black p-6 flex items-center justify-between z-10">
+              <div>
+                <h2 className="text-2xl font-mono font-bold">Request #{req.requestId?.toString() || requestId.toString()}</h2>
+                <p className="text-gray-600 font-mono">{assetName} • Submitted {date}</p>
+              </div>
+              <button
+                onClick={handleCloseModal}
+                className="text-gray-500 hover:text-black font-bold text-3xl leading-none"
+              >
+                ×
+              </button>
             </div>
-          ) : ipfsData ? (
-            <>
-              <div className="p-3 border border-black rounded-lg bg-gray-50">
-                <div className="text-xs font-semibold text-gray-600 mb-2">ASSET DETAILS</div>
-                {ipfsData.asset?.name && <div className="flex justify-between"><span className="text-gray-600">Asset Name</span><span className="font-bold">{ipfsData.asset.name}</span></div>}
-                {ipfsData.asset?.type && <div className="flex justify-between"><span className="text-gray-600">Type</span><span>{ipfsData.asset.type}</span></div>}
-                {ipfsData.asset?.description && <div className="flex justify-between"><span className="text-gray-600">Description</span><span className="truncate ml-2 text-right max-w-[60%]">{ipfsData.asset.description}</span></div>}
-              </div>
 
-              {ipfsData.property && (
-                <div className="p-3 border border-black rounded-lg bg-gray-50">
-                  <div className="text-xs font-semibold text-gray-600 mb-2">PROPERTY</div>
-                  {ipfsData.property.sizeSqft && <div className="flex justify-between"><span className="text-gray-600">Size</span><span>{ipfsData.property.sizeSqft} sq ft</span></div>}
-                  {ipfsData.property.bedrooms !== null && <div className="flex justify-between"><span className="text-gray-600">Bedrooms</span><span>{ipfsData.property.bedrooms}</span></div>}
-                  {ipfsData.property.bathrooms !== null && <div className="flex justify-between"><span className="text-gray-600">Bathrooms</span><span>{ipfsData.property.bathrooms}</span></div>}
-                  {ipfsData.property.yearBuilt && <div className="flex justify-between"><span className="text-gray-600">Year Built</span><span>{ipfsData.property.yearBuilt}</span></div>}
-                  {ipfsData.property.estValue && <div className="flex justify-between"><span className="text-gray-600">Est. Value</span><span>${ipfsData.property.estValue.toLocaleString()}</span></div>}
-                  {ipfsData.property.notes && <div className="flex justify-between"><span className="text-gray-600">Notes</span><span className="truncate ml-2 text-right max-w-[60%]">{ipfsData.property.notes}</span></div>}
+            {/* Modal Content */}
+            <div className="p-6 space-y-6">
+              {ipfsLoading ? (
+                <div className="text-center py-12">
+                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-black border-r-transparent"></div>
+                  <p className="mt-4 font-mono text-gray-600">Loading asset details...</p>
+                </div>
+              ) : ipfsData ? (
+                <>
+                  {/* 3 Column Grid Layout */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Asset Information */}
+                    <div className="p-6 bg-gray-50 border-2 border-black rounded-xl">
+                      <h3 className="text-lg font-mono font-bold mb-4 border-b-2 border-black pb-2">Asset Information</h3>
+                      <div className="space-y-3 text-sm font-mono">
+                        {ipfsData.asset?.name && (
+                          <div>
+                            <span className="text-gray-600 block mb-1">Asset Name</span>
+                            <p className="font-bold">{ipfsData.asset.name}</p>
+                          </div>
+                        )}
+                        {ipfsData.asset?.type && (
+                          <div>
+                            <span className="text-gray-600 block mb-1">Type</span>
+                            <p className="font-bold">{ipfsData.asset.type}</p>
+                          </div>
+                        )}
+                        {ipfsData.asset?.description && (
+                          <div>
+                            <span className="text-gray-600 block mb-1">Description</span>
+                            <p className="font-bold break-words">{ipfsData.asset.description}</p>
+                          </div>
+                        )}
+                        {ipfsData.location?.address && (
+                          <div>
+                            <span className="text-gray-600 block mb-1">Location</span>
+                            <p className="font-bold break-words">{ipfsData.location.address}</p>
+                          </div>
+                        )}
+                        {ipfsData.location?.gps && (
+                          <div>
+                            <span className="text-gray-600 block mb-1">GPS Coordinates</span>
+                            <p className="font-mono text-xs break-all">{ipfsData.location.gps.lat}, {ipfsData.location.gps.lng}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Property Details */}
+                    {ipfsData.property && (
+                      <div className="p-6 bg-gray-50 border-2 border-black rounded-xl">
+                        <h3 className="text-lg font-mono font-bold mb-4 border-b-2 border-black pb-2">Property Details</h3>
+                        <div className="space-y-3 text-sm font-mono">
+                          {ipfsData.property.sizeSqft && (
+                            <div>
+                              <span className="text-gray-600 block mb-1">Size</span>
+                              <span className="font-bold">{ipfsData.property.sizeSqft} sq ft</span>
+                            </div>
+                          )}
+                          {ipfsData.property.bedrooms !== null && ipfsData.property.bedrooms !== undefined && (
+                            <div>
+                              <span className="text-gray-600 block mb-1">Bedrooms</span>
+                              <span className="font-bold">{ipfsData.property.bedrooms}</span>
+                            </div>
+                          )}
+                          {ipfsData.property.bathrooms !== null && ipfsData.property.bathrooms !== undefined && (
+                            <div>
+                              <span className="text-gray-600 block mb-1">Bathrooms</span>
+                              <span className="font-bold">{ipfsData.property.bathrooms}</span>
+                            </div>
+                          )}
+                          {ipfsData.property.yearBuilt && (
+                            <div>
+                              <span className="text-gray-600 block mb-1">Year Built</span>
+                              <span className="font-bold">{ipfsData.property.yearBuilt}</span>
+                            </div>
+                          )}
+                          {ipfsData.property.estValue && (
+                            <div>
+                              <span className="text-gray-600 block mb-1">Estimated Value</span>
+                              <span className="font-bold text-green-600 text-lg">${ipfsData.property.estValue.toLocaleString()}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Notes Section */}
+                    {ipfsData.property?.notes && (
+                      <div className="p-6 bg-gray-50 border-2 border-black rounded-xl">
+                        <h3 className="text-lg font-mono font-bold mb-4 border-b-2 border-black pb-2">Notes</h3>
+                        <p className="text-sm font-mono text-gray-700 whitespace-pre-wrap">{ipfsData.property.notes}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Property Photos */}
+                  {(ipfsData.files?.photos || ipfsData.documents?.photos) && (ipfsData.files?.photos || ipfsData.documents?.photos).length > 0 && (
+                    <div className="p-6 bg-white border-2 border-black rounded-xl">
+                      <h3 className="text-xl font-mono font-bold mb-4">Property Photos ({(ipfsData.files?.photos || ipfsData.documents?.photos).length})</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {(ipfsData.files?.photos || ipfsData.documents?.photos).map((hash: string, idx: number) => {
+                          const cleanHash = hash.replace('ipfs://', '')
+                          const imageUrl = `https://gateway.pinata.cloud/ipfs/${cleanHash}`
+                          return (
+                            <div 
+                              key={`photo-${cleanHash}-${idx}`}
+                              className="relative border-2 border-black rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform select-none"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleImageClick(imageUrl)
+                              }}
+                            >
+                              <img 
+                                src={imageUrl}
+                                alt={`Property photo ${idx + 1}`}
+                                className="w-full h-40 object-cover select-none"
+                                loading="lazy"
+                                draggable={false}
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement
+                                  target.style.display = 'none'
+                                }}
+                              />
+                              <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs font-mono p-2 text-center">
+                                Photo {idx + 1}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Documents */}
+                  {(ipfsData.files?.documents || ipfsData.documents?.files) && (ipfsData.files?.documents || ipfsData.documents?.files).length > 0 && (
+                    <div className="p-6 bg-white border-2 border-black rounded-xl">
+                      <h3 className="text-xl font-mono font-bold mb-4">Documents ({(ipfsData.files?.documents || ipfsData.documents?.files).length})</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {(ipfsData.files?.documents || ipfsData.documents?.files).map((hash: string, idx: number) => {
+                          const cleanHash = hash.replace('ipfs://', '')
+                          const docUrl = `https://gateway.pinata.cloud/ipfs/${cleanHash}`
+                          return (
+                            <a 
+                              key={`doc-${cleanHash}-${idx}`}
+                              href={docUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-4 border-2 border-black rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between group"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="text-2xl">📄</div>
+                                <div>
+                                  <p className="font-mono font-bold text-sm">Document {idx + 1}</p>
+                                  <p className="text-xs text-gray-500 font-mono truncate max-w-[200px]">{cleanHash}</p>
+                                </div>
+                              </div>
+                              <div className="text-black group-hover:text-blue-600">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                              </div>
+                            </a>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Verification Status */}
+                  <div className="p-6 bg-white border-2 border-black rounded-xl">
+                    <h3 className="text-xl font-mono font-bold mb-4">Verification Status</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-sm text-gray-600 font-mono">Owner:</span>
+                        <p className="text-xs font-mono break-all">{req.owner}</p>
+                      </div>
+                      {req.valuation > BigInt(0) && (
+                        <div>
+                          <span className="text-sm text-gray-600 font-mono">Blockchain Valuation:</span>
+                          <p className="text-xl font-mono font-bold text-green-600">${(Number(req.valuation) / 1e18).toFixed(2)}</p>
+                        </div>
+                      )}
+                      {req.confidence > BigInt(0) && (
+                        <div>
+                          <span className="text-sm text-gray-600 font-mono">Confidence Score:</span>
+                          <p className="text-xl font-mono font-bold">{req.confidence.toString()}%</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-12 text-gray-500 font-mono">
+                  No IPFS data available
                 </div>
               )}
-
-              {ipfsData.location && (
-                <div className="p-3 border border-black rounded-lg bg-gray-50">
-                  <div className="text-xs font-semibold text-gray-600 mb-2">LOCATION</div>
-                  {ipfsData.location.address && <div className="flex justify-between"><span className="text-gray-600">Address</span><span className="truncate ml-2 text-right max-w-[60%]">{ipfsData.location.address}</span></div>}
-                  {ipfsData.location.gps && <div className="flex justify-between"><span className="text-gray-600">GPS</span><span>{ipfsData.location.gps.lat}, {ipfsData.location.gps.lng}</span></div>}
-                </div>
-              )}
-
-              <div className="p-3 border border-black rounded-lg bg-gray-50">
-                <div className="text-xs font-semibold text-gray-600 mb-2">PHOTOS</div>
-                {(ipfsData.files?.photos || ipfsData.documents?.photos) && (ipfsData.files?.photos || ipfsData.documents?.photos).length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {(ipfsData.files?.photos || ipfsData.documents?.photos).map((hash: string, idx: number) => {
-                      const cleanHash = hash.replace('ipfs://', '')
-                      return (
-                        <a 
-                          key={idx}
-                          href={`https://gateway.pinata.cloud/ipfs/${cleanHash}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-2 border border-blue-500 rounded bg-blue-50 hover:bg-blue-100 text-xs text-blue-700 truncate block text-center"
-                          title={cleanHash}
-                        >
-                          Photo {idx + 1}
-                        </a>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-xs text-gray-500">No photos</div>
-                )}
-              </div>
-
-              <div className="p-3 border border-black rounded-lg bg-gray-50">
-                <div className="text-xs font-semibold text-gray-600 mb-2">DOCUMENTS</div>
-                {(ipfsData.files?.documents || ipfsData.documents?.files) && (ipfsData.files?.documents || ipfsData.documents?.files).length > 0 ? (
-                  <div className="space-y-1">
-                    {(ipfsData.files?.documents || ipfsData.documents?.files).map((hash: string, idx: number) => {
-                      const cleanHash = hash.replace('ipfs://', '')
-                      return (
-                        <a 
-                          key={idx}
-                          href={`https://gateway.pinata.cloud/ipfs/${cleanHash}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-2 border border-green-500 rounded bg-green-50 hover:bg-green-100 text-xs text-green-700 block text-center"
-                          title={cleanHash}
-                        >
-                          📄 Document {idx + 1}
-                        </a>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-xs text-gray-500">No documents</div>
-                )}
-              </div>
-            </>
-          ) : null}
-
-          {/* Agent Status */}
-          <div className="p-3 border border-black rounded-lg bg-gray-50">
-            <div className="text-xs font-semibold text-gray-600 mb-2">AGENT VERIFICATION</div>
-            <div className="space-y-1">
-              {agentStatuses.map((agent) => (
-                <div key={agent.label} className="flex justify-between items-center">
-                  <span>{agent.label}</span>
-                  <span className="px-2 py-1 text-xs rounded bg-yellow-100 text-yellow-800">{agent.status}</span>
-                </div>
-              ))}
             </div>
           </div>
         </div>
       )}
-    </div>
+
+      {/* Image Lightbox */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 animate-fadeIn"
+          onClick={handleCloseLightbox}
+        >
+          <button
+            onClick={handleCloseLightbox}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 font-bold text-4xl z-10"
+            aria-label="Close image"
+          >
+            ×
+          </button>
+          <img 
+            src={selectedImage}
+            alt="Full size"
+            className="max-w-full max-h-full object-contain select-none"
+            onClick={(e) => e.stopPropagation()}
+            draggable={false}
+          />
+        </div>
+      )}
+    </>
   )
 }

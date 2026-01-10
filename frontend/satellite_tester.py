@@ -15,7 +15,7 @@ project_id = os.getenv('GOOGLE_EARTH_ENGINE_PROJECT_ID')
 ee.Initialize(project=project_id)
 
 # 2. Define Property Location (Lat, Long) and Area of Interest (AOI)
-lat, lon = 28.6139, 77.2090  # Example coordinates (New Delhi)
+lat, lon = 11.9403538,79.4873254  # Example coordinates (New Delhi)
 point = ee.Geometry.Point([lon, lat])
 roi = point.buffer(100).bounds()  # 100-meter buffer around the point
 
