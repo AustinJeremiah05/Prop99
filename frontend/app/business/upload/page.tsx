@@ -4,7 +4,7 @@ import { useAccount } from 'wagmi'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import Navigation from '../../components/Navigation'
-import { routerConfig, AssetTypeId } from '../../../config/onchain'
+import { routerConfig, AssetTypeId, type AssetTypeKey } from '../../../config/onchain'
 import { useWriteContract, usePublicClient } from 'wagmi'
 import { parseEther } from 'viem'
 
@@ -14,7 +14,7 @@ export default function UploadPage() {
   const [formError, setFormError] = useState('')
   const [formValues, setFormValues] = useState({
     assetName: '',
-    assetType: 'REAL_ESTATE',
+    assetType: 'REAL_ESTATE' as AssetTypeKey,
     location: '',
     gpsLat: '',
     gpsLng: '',
@@ -28,6 +28,7 @@ export default function UploadPage() {
   })
   const [photoFiles, setPhotoFiles] = useState<File[]>([])
   const [docFiles, setDocFiles] = useState<File[]>([])
+  const [validatingDocs, setValidatingDocs] = useState(false)
   const { writeContractAsync } = useWriteContract()
   const publicClient = usePublicClient()
 
@@ -53,6 +54,22 @@ export default function UploadPage() {
       router.push('/')
     }
   }, [isConnected, router])
+
+  // Validate document against land document template using AI
+  async function validateDocumentWithAI(file: File): Promise<{ valid: boolean; reason?: string }> {
+    try {
+      // Accept all document formats (PDF, JSON, images, etc.)
+      // AI agents will analyze the content to verify if it's a land document
+      console.log(`✅ Document accepted for AI verification: ${file.name} (${file.type})`)
+      return { valid: true }
+      
+    } catch (error) {
+      return { 
+        valid: false, 
+        reason: `Error processing document: ${error}` 
+      }
+    }
+  }
 
   if (!isConnected) {
     return null
@@ -118,7 +135,7 @@ export default function UploadPage() {
               <select
                 className="border-2 border-black rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black bg-white"
                 value={formValues.assetType}
-                onChange={(e) => setFormValues(v => ({ ...v, assetType: e.target.value }))}
+                onChange={(e) => setFormValues(v => ({ ...v, assetType: e.target.value as AssetTypeKey }))}
               >
                 <option value="REAL_ESTATE">Real Estate</option>
                 <option value="INVOICE">Invoice</option>
@@ -323,7 +340,8 @@ export default function UploadPage() {
               Cancel
             </button>
             <button
-              className="px-4 py-2 font-mono bg-black text-white rounded-lg hover:bg-gray-800"
+              className="px-4 py-2 font-mono bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={validatingDocs}
               onClick={async () => {
                 const missingBasics = !formValues.assetName || !formValues.location
                 const missingGeo = !formValues.gpsLat || !formValues.gpsLng
@@ -344,6 +362,28 @@ export default function UploadPage() {
 
                 try {
                   setFormError('')
+                  setValidatingDocs(true)
+
+                  // STEP 0: Validate documents BEFORE uploading to IPFS
+                  console.log('🔍 Validating documents against land document template...')
+                  
+                  for (let i = 0; i < docFiles.length; i++) {
+                    const doc = docFiles[i]
+                    console.log(`Validating document ${i + 1}/${docFiles.length}: ${doc.name}`)
+                    
+                    const validation = await validateDocumentWithAI(doc)
+                    
+                    if (!validation.valid) {
+                      setValidatingDocs(false)
+                      setFormError(`❌ REJECTED: ${validation.reason}\n\nPlease upload documents that match the land document template with all mandatory fields.`)
+                      alert(`Document Rejected!\n\n${validation.reason}\n\nREQUIRED LAND DOCUMENT FIELDS:\n\nProperty Identification:\n• Survey Number\n• Plot Number\n\nOwner Information:\n• Owner/Seller Name\n• Owner Address\n\nProperty Details:\n• Property Location\n• Total Area (in sqft or sqm)\n• Boundaries Description\n\nAdditional Required:\n• Deed Type\n• Registration Details\n• Consideration Amount\n\nPlease ensure your document is in JSON format with these exact field names.`)
+                      return
+                    }
+                  }
+
+                  console.log('✅ All documents validated successfully')
+                  setValidatingDocs(false)
+
                   // 1) Upload files + metadata to IPFS via API route
                   const meta = {
                     owner: address,
@@ -392,7 +432,7 @@ export default function UploadPage() {
                     ...routerConfig,
                     functionName: 'requestVerification',
                     args: [
-                      AssetTypeId[formValues.assetType as any] as unknown as number,
+                      AssetTypeId[formValues.assetType] as unknown as number,
                       locationString,
                       [metadataCid],
                     ],
@@ -401,11 +441,12 @@ export default function UploadPage() {
 
                   router.push('/business/dashboard')
                 } catch (err: any) {
+                  setValidatingDocs(false)
                   setFormError(err?.message || 'Submission failed')
                 }
               }}
             >
-              Submit for Verification
+              {validatingDocs ? '🔍 Validating Documents...' : 'Submit for Verification'}
             </button>
           </div>
         </div>

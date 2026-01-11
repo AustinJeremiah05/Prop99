@@ -4,7 +4,7 @@ import { useAccount } from 'wagmi'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import Navigation from '../../components/Navigation'
-import { routerConfig, AssetTypeId } from '../../../config/onchain'
+import { routerConfig, AssetTypeId, type AssetTypeKey } from '../../../config/onchain'
 import { useWriteContract, usePublicClient, useReadContract } from 'wagmi'
 import { parseEther } from 'viem'
 import AssetRequestCard from './AssetRequestCard'
@@ -16,7 +16,7 @@ export default function BusinessDashboard() {
   const [formError, setFormError] = useState('')
   const [formValues, setFormValues] = useState({
     assetName: '',
-    assetType: 'REAL_ESTATE',
+    assetType: 'REAL_ESTATE' as AssetTypeKey,
     location: '',
     gpsLat: '',
     gpsLng: '',
@@ -188,7 +188,7 @@ export default function BusinessDashboard() {
                 <select
                   className="border-2 border-black rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black bg-white"
                   value={formValues.assetType}
-                  onChange={(e) => setFormValues(v => ({ ...v, assetType: e.target.value }))}
+                  onChange={(e) => setFormValues(v => ({ ...v, assetType: e.target.value as AssetTypeKey }))}
                 >
                   <option value="REAL_ESTATE">Real Estate</option>
                   <option value="INVOICE">Invoice</option>
@@ -413,7 +413,7 @@ export default function BusinessDashboard() {
                   }
 
                   try {
-                    setFormError('')
+                    setFormError('Uploading files to IPFS...')
                     // 1) Upload files + metadata to IPFS via API route
                     const meta = {
                       owner: address,
@@ -444,8 +444,10 @@ export default function BusinessDashboard() {
                       throw new Error(`Upload failed: ${t}`)
                     }
                     const { metadataCid } = await res.json()
+                    console.log('✅ IPFS Upload successful:', metadataCid)
 
                     // 2) Determine fee
+                    setFormError('Preparing blockchain transaction...')
                     let fee = parseEther('0.01')
                     try {
                       const onchainFee = await publicClient?.readContract({
@@ -457,21 +459,32 @@ export default function BusinessDashboard() {
                     } catch {}
 
                     // 3) Call OracleRouter.requestVerification
+                    setFormError('Waiting for MetaMask approval...')
+                    console.log('📝 Submitting to blockchain...')
+                    console.log('Contract:', routerConfig.address)
+                    console.log('Asset Type:', formValues.assetType, '=', AssetTypeId[formValues.assetType])
+                    console.log('Fee:', fee.toString())
+                    console.log('Metadata CID:', metadataCid)
+                    
                     const locationString = `${formValues.location} | ${formValues.gpsLat},${formValues.gpsLng}`
-                    await writeContractAsync({
+                    const txHash = await writeContractAsync({
                       ...routerConfig,
                       functionName: 'requestVerification',
                       args: [
-                        AssetTypeId[formValues.assetType as any] as unknown as number,
+                        AssetTypeId[formValues.assetType] as unknown as number,
                         locationString,
                         [metadataCid],
                       ],
                       value: fee,
                     })
 
+                    console.log('✅ Transaction submitted:', txHash)
+                    setFormError('')
                     setShowUploadModal(false)
                   } catch (err: any) {
-                    setFormError(err?.message || 'Submission failed')
+                    console.error('❌ Submission error:', err)
+                    const errorMsg = err?.shortMessage || err?.message || 'Submission failed'
+                    setFormError(errorMsg)
                   }
                 }}
               >

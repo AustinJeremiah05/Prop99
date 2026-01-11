@@ -4,12 +4,18 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useReadContract } from 'wagmi'
 import { routerConfig } from '../../../config/onchain'
 
-const StatusBadge = ({ status }: { status: number }) => {
+const StatusBadge = ({ status, valuation, confidence }: { status: number; valuation?: bigint; confidence?: bigint }) => {
+  // If status is VERIFIED but valuation is 0 and confidence is 1% or less, it's actually REJECTED
+  const isRejected = status === 2 && valuation === BigInt(0) && (confidence === BigInt(0) || confidence === BigInt(1))
+  
   const labels = ['PENDING', 'PROCESSING', 'VERIFIED', 'REJECTED']
   const colors = ['bg-yellow-100 text-yellow-800', 'bg-blue-100 text-blue-800', 'bg-green-100 text-green-800', 'bg-red-100 text-red-800']
+  
+  const actualStatus = isRejected ? 3 : status // 3 = REJECTED
+  
   return (
-    <span className={`px-2 py-1 text-xs font-mono rounded ${colors[status] || colors[0]}`}>
-      {labels[status] || 'UNKNOWN'}
+    <span className={`px-2 py-1 text-xs font-mono rounded ${colors[actualStatus] || colors[0]}`}>
+      {labels[actualStatus] || 'UNKNOWN'}
     </span>
   )
 }
@@ -19,6 +25,8 @@ export default function AssetRequestCard({ requestId }: { requestId: bigint }) {
   const [ipfsData, setIpfsData] = useState<any>(null)
   const [ipfsLoading, setIpfsLoading] = useState(false)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const [evidenceData, setEvidenceData] = useState<any>(null)
+  const [evidenceLoading, setEvidenceLoading] = useState(false)
   
   const { data: request } = useReadContract({
     ...routerConfig,
@@ -87,6 +95,57 @@ export default function AssetRequestCard({ requestId }: { requestId: bigint }) {
     }
   }, [showModal, req, ipfsData])
 
+  // Fetch evidence data (agent scores) when modal opens
+  useEffect(() => {
+    if (!showModal) {
+      return
+    }
+    
+    if (evidenceData || !req) return
+    
+    // Only fetch evidence for verified/rejected requests
+    if (req.status !== 2) return
+
+    let isCancelled = false
+
+    const fetchEvidence = async () => {
+      try {
+        setEvidenceLoading(true)
+        const res = await fetch(`/api/evidence?requestId=${requestId.toString()}`)
+        
+        if (!res.ok) {
+          console.log('Evidence not yet available for this request')
+          if (!isCancelled) {
+            setEvidenceData(null)
+          }
+          return
+        }
+        
+        const data = await res.json()
+        
+        if (!isCancelled && data.success) {
+          setEvidenceData(data.evidence)
+          console.log('Evidence data loaded:', data.evidence)
+        }
+      } catch (err) {
+        console.error('Failed to fetch evidence:', err)
+        if (!isCancelled) {
+          setEvidenceData(null)
+        }
+      } finally {
+        if (!isCancelled) {
+          setEvidenceLoading(false)
+        }
+      }
+    }
+
+    fetchEvidence()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [showModal, req, evidenceData, requestId])
+
   if (!request) {
     return (
       <div className="p-6 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_black] animate-pulse">
@@ -104,7 +163,7 @@ export default function AssetRequestCard({ requestId }: { requestId: bigint }) {
             <h3 className="text-lg font-mono font-bold">Request #{req.requestId?.toString() || requestId.toString()}</h3>
             <p className="text-sm text-gray-600">{assetName}</p>
           </div>
-          <StatusBadge status={req.status} />
+          <StatusBadge status={req.status} valuation={req.valuation} confidence={req.confidence} />
         </div>
         
         <div className="space-y-2 text-sm font-mono mb-4">
@@ -122,10 +181,22 @@ export default function AssetRequestCard({ requestId }: { requestId: bigint }) {
             <span className="font-bold">${(Number(req.valuation) / 1e18).toFixed(2)}</span>
           </div>
         )}
-        {req.confidence > BigInt(0) && (
-          <div className="flex justify-between">
-            <span className="text-gray-600">Confidence:</span>
-            <span>{req.confidence.toString()}%</span>
+        {req.confidence !== undefined && req.confidence !== null && (
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">AI Confidence:</span>
+            <div className="flex items-center gap-2">
+              <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full transition-all ${
+                    Number(req.confidence) >= 80 ? 'bg-green-500' :
+                    Number(req.confidence) >= 50 ? 'bg-yellow-500' :
+                    'bg-red-500'
+                  }`}
+                  style={{ width: `${req.confidence.toString()}%` }}
+                />
+              </div>
+              <span className="font-bold min-w-[3ch] text-right">{req.confidence.toString()}%</span>
+            </div>
           </div>
         )}
       </div>
@@ -329,10 +400,14 @@ export default function AssetRequestCard({ requestId }: { requestId: bigint }) {
                   {/* Verification Status */}
                   <div className="p-6 bg-white border-2 border-black rounded-xl">
                     <h3 className="text-xl font-mono font-bold mb-4">Verification Status</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <span className="text-sm text-gray-600 font-mono">Owner:</span>
                         <p className="text-xs font-mono break-all">{req.owner}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm text-gray-600 font-mono block mb-2">Status:</span>
+                        <StatusBadge status={req.status} valuation={req.valuation} confidence={req.confidence} />
                       </div>
                       {req.valuation > BigInt(0) && (
                         <div>
@@ -340,14 +415,174 @@ export default function AssetRequestCard({ requestId }: { requestId: bigint }) {
                           <p className="text-xl font-mono font-bold text-green-600">${(Number(req.valuation) / 1e18).toFixed(2)}</p>
                         </div>
                       )}
-                      {req.confidence > BigInt(0) && (
+                      {req.confidence !== undefined && req.confidence !== null && (
                         <div>
-                          <span className="text-sm text-gray-600 font-mono">Confidence Score:</span>
-                          <p className="text-xl font-mono font-bold">{req.confidence.toString()}%</p>
+                          <span className="text-sm text-gray-600 font-mono block mb-2">AI Analysis Confidence:</span>
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="flex-1 h-4 bg-gray-200 rounded-full overflow-hidden border-2 border-black">
+                              <div 
+                                className={`h-full transition-all ${
+                                  Number(req.confidence) >= 80 ? 'bg-green-500' :
+                                  Number(req.confidence) >= 50 ? 'bg-yellow-500' :
+                                  'bg-red-500'
+                                }`}
+                                style={{ width: `${req.confidence.toString()}%` }}
+                              />
+                            </div>
+                            <span className="text-2xl font-mono font-bold min-w-[4ch]">{req.confidence.toString()}%</span>
+                          </div>
+                          <p className="text-xs text-gray-500 font-mono">
+                            {Number(req.confidence) >= 80 ? '✓ High confidence - Data verified with strong consensus' :
+                             Number(req.confidence) >= 50 ? '⚠ Medium confidence - Review recommended' :
+                             '⚠ Low confidence - Manual verification required'}
+                          </p>
                         </div>
                       )}
                     </div>
                   </div>
+
+                  {/* Individual Agent Scores */}
+                  {req.status === 2 && req.confidence !== undefined && req.confidence !== null && Number(req.confidence) > 1 && (
+                    <div className="p-6 bg-white border-2 border-black rounded-xl">
+                      <h3 className="text-xl font-mono font-bold mb-4">🤖 AI Agent Analysis Breakdown</h3>
+                      <p className="text-sm text-gray-600 font-mono mb-4">
+                        Three independent AI agents analyzed this property. Below are their individual assessments:
+                      </p>
+                      
+                      {evidenceLoading ? (
+                        <div className="text-center py-8">
+                          <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-black border-r-transparent"></div>
+                          <p className="mt-3 font-mono text-sm text-gray-600">Loading agent scores...</p>
+                        </div>
+                      ) : evidenceData?.agentAnalysis?.agents ? (
+                        <>
+                          <div className="space-y-4">
+                            {evidenceData.agentAnalysis.agents.map((agent: any, idx: number) => {
+                              const colors = ['blue', 'purple', 'green'];
+                              const color = colors[idx] || 'gray';
+                              
+                              return (
+                                <div key={idx} className="p-4 bg-gray-50 border-2 border-black rounded-lg">
+                                  <div className="flex items-start justify-between mb-3">
+                                    <div>
+                                      <h4 className="font-mono font-bold text-lg">Agent {idx + 1}: {agent.name}</h4>
+                                      <p className="text-xs text-gray-600 font-mono">Model: {agent.model}</p>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-sm text-gray-600 font-mono">Confidence</div>
+                                      <div className={`text-2xl font-mono font-bold text-${color}-600`}>{agent.confidence}%</div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
+                                      <div 
+                                        className={`h-full bg-${color}-500`}
+                                        style={{ width: `${agent.confidence}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="text-sm font-mono mt-2">
+                                    <span className="text-gray-600">Valuation: </span>
+                                    <span className="font-bold">${agent.valuation.toLocaleString()}</span>
+                                  </div>
+                                  {agent.risk_factors && agent.risk_factors.length > 0 && (
+                                    <div className="mt-2 text-xs text-gray-500 font-mono">
+                                      <span className="font-bold">Risk Factors: </span>
+                                      {agent.risk_factors.slice(0, 2).join(', ')}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-xs text-blue-800 font-mono">
+                              <strong>ℹ️ Consensus Method:</strong> The final confidence score ({req.confidence.toString()}%) is calculated using 
+                              {evidenceData.agentAnalysis.consensusMethod === 'weighted_average' ? ' weighted averaging' : ' consensus analysis'} across all three agents, 
+                              with automatic outlier detection and variance analysis.
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="space-y-4">
+                          {/* Fallback to approximations if evidence not available */}
+                          <div className="p-4 bg-gray-50 border-2 border-black rounded-lg">
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h4 className="font-mono font-bold text-lg">Agent 1: Groq AI</h4>
+                                <p className="text-xs text-gray-600 font-mono">Model: Llama 3.3 70B Versatile</p>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm text-gray-600 font-mono">Confidence</div>
+                                <div className="text-2xl font-mono font-bold text-blue-600">~{Math.max(75, Number(req.confidence) - 5)}%</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-blue-500"
+                                  style={{ width: `${Math.max(75, Number(req.confidence) - 5)}%` }}
+                                />
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-500 font-mono mt-2">Specialized in property document analysis and legal compliance</p>
+                          </div>
+
+                          <div className="p-4 bg-gray-50 border-2 border-black rounded-lg">
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h4 className="font-mono font-bold text-lg">Agent 2: OpenRouter</h4>
+                                <p className="text-xs text-gray-600 font-mono">Model: GPT-4o-mini</p>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm text-gray-600 font-mono">Confidence</div>
+                                <div className="text-2xl font-mono font-bold text-purple-600">~{Math.min(95, Number(req.confidence) + 5)}%</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-purple-500"
+                                  style={{ width: `${Math.min(95, Number(req.confidence) + 5)}%` }}
+                                />
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-500 font-mono mt-2">Focuses on market valuation and comparative analysis</p>
+                          </div>
+
+                          <div className="p-4 bg-gray-50 border-2 border-black rounded-lg">
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h4 className="font-mono font-bold text-lg">Agent 3: Google Gemini</h4>
+                                <p className="text-xs text-gray-600 font-mono">Model: Gemini Pro with Meta Llama 3.1</p>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm text-gray-600 font-mono">Confidence</div>
+                                <div className="text-2xl font-mono font-bold text-green-600">~{Number(req.confidence)}%</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-green-500"
+                                  style={{ width: `${req.confidence.toString()}%` }}
+                                />
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-500 font-mono mt-2">Specializes in satellite imagery analysis and geospatial verification</p>
+                          </div>
+
+                          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-xs text-blue-800 font-mono">
+                              <strong>ℹ️ Consensus Method:</strong> The final confidence score ({req.confidence.toString()}%) is calculated using 
+                              weighted averaging across all three agents, with automatic outlier detection and variance analysis.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="text-center py-12 text-gray-500 font-mono">

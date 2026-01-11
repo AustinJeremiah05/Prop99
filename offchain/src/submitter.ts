@@ -8,6 +8,8 @@ import { mantle } from 'viem/chains';
 import { logger } from './utils/logger';
 import axios from 'axios';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
@@ -18,6 +20,45 @@ const ORACLE_PRIVATE_KEY = (process.env.ORACLE_PRIVATE_KEY?.trim().startsWith('0
 const IS_TESTNET = process.env.NODE_ENV !== 'production';
 const RPC_URL = IS_TESTNET ? process.env.MANTLE_TESTNET_RPC_URL : process.env.MANTLE_RPC_URL;
 const PINATA_JWT = process.env.PINATA_JWT;
+
+// Evidence mapping file path
+const EVIDENCE_MAP_PATH = path.join(__dirname, '..', 'evidence-map.json');
+
+/**
+ * Store evidence hash mapping for frontend access
+ */
+function storeEvidenceMapping(requestId: string, evidenceHash: string): void {
+  try {
+    let mapping: Record<string, string> = {};
+    
+    // Read existing mapping if it exists
+    if (fs.existsSync(EVIDENCE_MAP_PATH)) {
+      const data = fs.readFileSync(EVIDENCE_MAP_PATH, 'utf-8');
+      mapping = JSON.parse(data);
+    }
+    
+    // Add new mapping
+    mapping[requestId] = evidenceHash;
+    
+    // Write back to file
+    fs.writeFileSync(EVIDENCE_MAP_PATH, JSON.stringify(mapping, null, 2));
+    logger.info(`📝 Evidence mapping stored: Request ${requestId} -> ${evidenceHash}`);
+  } catch (error) {
+    logger.error('Failed to store evidence mapping:', error);
+  }
+}
+
+/**
+ * Get friendly model name for agent
+ */
+function getAgentModelName(agentName: string): string {
+  const modelMap: Record<string, string> = {
+    'Groq': 'Llama 3.3 70B Versatile',
+    'OpenRouter': 'GPT-4o-mini',
+    'Gemini': 'Meta Llama 3.1 8B Instruct'
+  };
+  return modelMap[agentName] || agentName;
+}
 
 // Define Mantle Sepolia Testnet
 const mantleSepolia = defineChain({
@@ -67,6 +108,42 @@ const ORACLE_ROUTER_ABI = [
 ] as const;
 
 /**
+ * Submit rejection to blockchain
+ * Uses submitVerification with 0 valuation and 1% confidence to indicate rejection
+ */
+export async function submitRejection(
+  requestId: string,
+  reason: string
+): Promise<string> {
+  try {
+    logger.info('🚫 Submitting rejection to blockchain...');
+    logger.info(`   Reason: ${reason}`);
+    logger.info(`   Method: submitVerification with $0 valuation and 1% confidence (rejection)`);
+    
+    // Submit as verification with 0 valuation and 1% confidence (indicates rejection)
+    // Contract requires confidence > 0, so we use 1 (minimum) to indicate rejection
+    const hash = await walletClient.writeContract({
+      address: ORACLE_ROUTER_ADDRESS,
+      abi: ORACLE_ROUTER_ABI,
+      functionName: 'submitVerification',
+      args: [
+        BigInt(requestId),
+        BigInt(0),  // 0 valuation = rejection
+        BigInt(1)   // 1% confidence = rejection (minimum allowed by contract)
+      ]
+    });
+    
+    logger.info(`✅ Rejection transaction sent: ${hash}`);
+    logger.info(`   The request will show as VERIFIED with $0 value and 1% confidence (rejected)`);
+    return hash;
+    
+  } catch (error) {
+    logger.error('❌ Failed to submit rejection:', error);
+    throw error;
+  }
+}
+
+/**
  * Submit verification result to blockchain
  */
 export async function submitVerification(
@@ -74,20 +151,39 @@ export async function submitVerification(
   valuation: number,
   confidence: number,
   satelliteData: any,
-  agentResponses: any[]
+  agentResponses: any[],
+  nodeResponses?: any[]  // Individual agent scores with names
 ): Promise<string> {
   try {
     // Upload evidence to IPFS
     logger.info('📦 Uploading evidence to IPFS...');
-    const evidenceHash = await uploadEvidence({
+    
+    // Create detailed analysis breakdown with individual agent scores
+    const analysisBreakdown = {
       requestId,
-      valuation,
-      confidence,
+      finalValuation: valuation,
+      finalConfidence: confidence,
+      timestamp: new Date().toISOString(),
       satelliteData,
-      agentResponses,
-      timestamp: new Date().toISOString()
-    });
+      agentAnalysis: {
+        agents: nodeResponses || agentResponses.map(r => ({
+          name: r.agent,
+          model: getAgentModelName(r.agent),
+          valuation: r.valuation,
+          confidence: r.confidence,
+          reasoning: r.reasoning,
+          risk_factors: r.risk_factors || []
+        })),
+        consensusMethod: 'weighted_average',
+        fullResponses: agentResponses
+      }
+    };
+    
+    const evidenceHash = await uploadEvidence(analysisBreakdown);
     logger.info(`✅ Evidence uploaded: ${evidenceHash}`);
+    
+    // Store mapping for frontend access
+    storeEvidenceMapping(requestId, evidenceHash.replace('ipfs://', ''));
     
     // Submit to blockchain
     logger.info('📤 Submitting transaction to Mantle Sepolia...');

@@ -89,24 +89,84 @@ def analyze_property(data):
         
         # Use OpenRouter API for reasoning
         try:
+            # Get document contents for analysis
+            document_contents = data.get('document_contents', [])
+            has_documents = len(document_contents) > 0
+            
+            # Debug log to stderr
+            print(f"[Agent2 DEBUG] Received {len(document_contents)} documents", file=sys.stderr)
+            for i, content in enumerate(document_contents):
+                print(f"[Agent2 DEBUG] Doc {i+1}: {len(content)} chars, preview: {content[:100]}", file=sys.stderr)
+            
+            document_section = ""
+            if has_documents:
+                document_section = "\n\nACTUAL DOCUMENT CONTENT FOR VERIFICATION:\n"
+                for i, content in enumerate(document_contents):
+                    # Analyze FULL document text, not just first 800 chars
+                    document_section += f"\nDocument {i+1} (FULL TEXT - {len(content)} characters):\n{content}\n"
+            
             response = client.chat.completions.create(
                 model="openai/gpt-4o-mini",
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a real estate valuation expert. Provide brief, professional reasoning for property valuations."
+                        "content": "You are a real estate valuation expert specialized in land document verification. You MUST analyze the actual document content provided and verify it matches standard land document templates. REJECT if mandatory fields are missing."
                     },
                     {
                         "role": "user",
-                        "content": f"""Property Analysis:
+                        "content": f"""Property Analysis (STRICT Land Document Verification):
+
+SATELLITE DATA:
 - Area: {area_sqm} sqm
 - Vegetation Health (NDVI): {ndvi}
 - Cloud Coverage: {cloud_coverage}%
-- Documents: {document_count}
+
+DOCUMENTATION:
+- Documents Submitted: {document_count}
 - Calculated Valuation: ${valuation_result['valuation']:,}
 - Confidence: {valuation_result['confidence']}%
+{document_section}
 
-Provide a brief 1-2 sentence reasoning for this valuation."""
+⚠️ CRITICAL: STRICT LAND DOCUMENT TYPE VERIFICATION ⚠️
+This is a LAND/PROPERTY TOKENIZATION system. You must REJECT any document that is NOT a land document.
+
+STEP 1: VERIFY DOCUMENT TYPE
+The document MUST be one of these types:
+✓ Sale Deed / Purchase Deed
+✓ Land Title / Property Deed  
+✓ Transfer Deed / Conveyance Deed
+✓ Land Document / Property Document
+
+If the document is ANY OTHER TYPE → IMMEDIATELY REJECT with score 0
+Examples of INVALID documents: Invoice, Receipt, Contract, Business Agreement, Random Document
+
+STEP 2: MANDATORY LAND DOCUMENT FIELDS (ALL must be present)
+1. Property Identification - Survey number / Plot number / Deed number
+2. Owner/Seller Information - Full name AND complete address
+3. Property Location - Full address or detailed location
+4. Total Area - Size with units (must be specified)
+5. Boundaries - Detailed boundary description
+6. Legal Description - Deed type and registration details
+
+STEP 3: STRICT VALIDATION RULES
+- NOT a land/property deed → REJECT with score 0
+- Missing survey/plot number → REJECT with score 0-20
+- Missing owner name or address → REJECT with score 0-20
+- Missing property location → REJECT with score 0-20  
+- Missing total area → REJECT with score 0-20
+- Missing boundaries → REJECT with score 0-30
+- Contains placeholders (TODO, TBD, N/A) → REJECT with score 0
+- Area differs from satellite {area_sqm} sqm by >20% → Flag "Area mismatch >20%"
+- Document appears incomplete or fraudulent → REJECT with score 0-30
+
+PROVIDE DETAILED ANALYSIS:
+1. State clearly: Is this a land/property document? If NO → explain why it's being rejected
+2. List SPECIFIC fields found vs missing from the actual document content
+3. Compare documented area with satellite measurement ({area_sqm} sqm)
+4. Identify any red flags or inconsistencies
+5. Give clear verdict: ACCEPT or REJECT with specific reason
+
+Return detailed reasoning (4-5 sentences) with SPECIFIC findings from the document content."""
                     }
                 ]
             )
