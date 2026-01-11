@@ -1,6 +1,6 @@
 """
 AI Agent 2 - OpenRouter Agent
-Property analysis using OpenRouter API
+Property analysis using OpenRouter API with Google Custom Search price data
 """
 import os
 import sys
@@ -8,6 +8,10 @@ import json
 from datetime import datetime
 from dotenv import load_dotenv
 from openai import OpenAI
+
+# Import price oracle
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.services.priceOracle import get_market_valuation
 
 load_dotenv()
 
@@ -70,7 +74,7 @@ def calculate_valuation(area_sqm: float, ndvi: float, cloud_coverage: float, doc
     return result
 
 def analyze_property(data):
-    """Analyze property using OpenRouter with direct API call"""
+    """Analyze property using OpenRouter with direct API call and market price data"""
     try:
         api_key = os.getenv('OPENROUTER_API_KEY')
         
@@ -83,12 +87,40 @@ def analyze_property(data):
         ndvi = satellite_data.get('ndvi', 0.5)
         cloud_coverage = satellite_data.get('cloud_coverage', 5)
         document_count = data.get('document_count', 0)
+        latitude = data.get('latitude', 0)
+        longitude = data.get('longitude', 0)
+        location = data.get('location', f"{latitude},{longitude}")
         
-        # Calculate valuation directly
-        valuation_result = calculate_valuation(area_sqm, ndvi, cloud_coverage, document_count)
+        # Fetch market price data from Google Custom Search
+        market_data = {}
+        try:
+            market_data = get_market_valuation(location, latitude, longitude, area_sqm)
+            if not market_data.get('error'):
+                print(f"✓ Market data: ${market_data.get('average_price', 0):,} avg, {market_data.get('price_count', 0)} sources", file=sys.stderr)
+        except Exception as e:
+            print(f"⚠️  Market price fetch failed: {e}", file=sys.stderr)
+        
+        # Calculate valuation with market data influence
+        base_valuation = calculate_valuation(area_sqm, ndvi, cloud_coverage, document_count)
+        
+        # If we have market data, blend it with satellite-based valuation
+        final_valuation = base_valuation['valuation']
+        final_confidence = base_valuation['confidence']
+        
+        if market_data.get('average_price') and not market_data.get('error'):
+            market_price = market_data.get('estimated_valuation', market_data.get('average_price', 0))
+            # Weighted average: 60% market data, 40% satellite data
+            if market_price > 0:
+                final_valuation = int(market_price * 0.6 + base_valuation['valuation'] * 0.4)
+                # Increase confidence if market data available
+                final_confidence = min(95, final_confidence + 10)
         
         # Use OpenRouter API for reasoning
         try:
+            market_info = ""
+            if market_data.get('average_price') and not market_data.get('error'):
+                market_info = f"\n- Market Average: ${market_data.get('average_price', 0):,} ({market_data.get('price_count', 0)} sources)"
+            
             response = client.chat.completions.create(
                 model="openai/gpt-4o-mini",
                 messages=[
@@ -99,12 +131,13 @@ def analyze_property(data):
                     {
                         "role": "user",
                         "content": f"""Property Analysis:
+- Location: {location}
 - Area: {area_sqm} sqm
 - Vegetation Health (NDVI): {ndvi}
 - Cloud Coverage: {cloud_coverage}%
-- Documents: {document_count}
-- Calculated Valuation: ${valuation_result['valuation']:,}
-- Confidence: {valuation_result['confidence']}%
+- Documents: {document_count}{market_info}
+- Final Valuation: ${final_valuation:,}
+- Confidence: {final_confidence}%
 
 Provide a brief 1-2 sentence reasoning for this valuation."""
                     }
@@ -113,18 +146,27 @@ Provide a brief 1-2 sentence reasoning for this valuation."""
             
             reasoning = response.choices[0].message.content
         except Exception as e:
-            reasoning = f"Analysis based on {area_sqm} sqm property with NDVI {ndvi} and {document_count} documents. Vegetation health indicates {'premium' if ndvi > 0.6 else 'moderate' if ndvi > 0.4 else 'standard'} land quality."
+            reasoning = f"Analysis based on {area_sqm} sqm property with NDVI {ndvi} and {document_count} documents. "
+            if market_data.get('average_price'):
+                reasoning += f"Market data shows average price of ${market_data.get('average_price', 0):,}. "
+            reasoning += f"Vegetation health indicates {'premium' if ndvi > 0.6 else 'moderate' if ndvi > 0.4 else 'standard'} land quality."
         
         result = {
-            "valuation": valuation_result["valuation"],
-            "confidence": valuation_result["confidence"],
+            "valuation": final_valuation,
+            "confidence": final_confidence,
             "reasoning": reasoning,
             "risk_factors": [
                 "Cloud coverage impact" if cloud_coverage > 10 else None,
                 "Limited documentation" if document_count < 2 else None,
-                "Low vegetation index" if ndvi < 0.3 else None
+                "Low vegetation index" if ndvi < 0.3 else None,
+                "No market data" if market_data.get('error') else None
             ],
-            "agent": "openrouter"
+            "agent": "openrouter",
+            "market_data": {
+                "has_data": not market_data.get('error'),
+                "average_price": market_data.get('average_price', 0),
+                "source_count": market_data.get('price_count', 0)
+            } if market_data else {}
         }
         
         # Filter out None values from risk_factors

@@ -49,6 +49,7 @@ export async function processVerificationRequest(request: VerificationRequest) {
       request_id: request.requestId,
       latitude: request.latitude,
       longitude: request.longitude,
+      location: `${request.latitude},${request.longitude}`,
       satellite_data: satelliteData,
       document_count: request.documentHashes.length,
       document_hashes: request.documentHashes
