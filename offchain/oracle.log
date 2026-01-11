@@ -1,0 +1,32 @@
+2026-01-11 13:08:24 ═══════════════════════════════════════════════════════════════
+2026-01-11 13:08:24 🤖 RWA ORACLE STARTING
+2026-01-11 13:08:24 ═══════════════════════════════════════════════════════════════
+2026-01-11 13:08:24 Oracle Address: 0xf4d1656069B739d652CdFC8Cc6ddE2Cd0b2d9A9C
+2026-01-11 13:08:24 Network: Testnet
+2026-01-11 13:08:24 ═══════════════════════════════════════════════════════════════
+
+2026-01-11 13:08:24 🚀 Starting Oracle Listener...
+2026-01-11 13:08:24 📡 Network: Mantle Sepolia Testnet
+2026-01-11 13:08:24 🔗 RPC URL: https://rpc.sepolia.mantle.xyz
+2026-01-11 13:08:24 📍 Oracle Router: 0xf4d1656069B739d652CdFC8Cc6ddE2Cd0b2d9A9C
+2026-01-11 13:08:26 📦 Current block: 33286216
+2026-01-11 13:08:26 🔍 Scanning for pending requests from recent blocks...
+2026-01-11 13:08:26    Scanning from block 33236216 to 33286216 in 10000 block chunks...
+2026-01-11 13:08:27    ✓ Blocks 33236216-33246216: Found 4 event(s)
+2026-01-11 13:08:28    ✓ Blocks 33256218-33266218: Found 2 event(s)
+2026-01-11 13:08:29    Total events found: 6
+2026-01-11 13:08:29 📜 Filtering pending requests from 6 event(s)...
+2026-01-11 13:08:29    ⊘ Request #2: VERIFIED - skipping
+2026-01-11 13:08:29    ⊘ Request #3: VERIFIED - skipping
+2026-01-11 13:08:30    ⊘ Request #4: VERIFIED - skipping
+2026-01-11 13:08:30    ⊘ Request #5: VERIFIED - skipping
+2026-01-11 13:08:31    ⊘ Request #6: VERIFIED - skipping
+2026-01-11 13:08:31    ⊘ Request #7: VERIFIED - skipping
+2026-01-11 13:08:31 
+📋 Found 0 pending request(s) to process
+
+2026-01-11 13:08:31 👂 Now listening for new VerificationRequested events...
+2026-01-11 13:08:31 Press Ctrl+C to stop
+
+2026-01-11 13:08:53 
+🛑 Stopping oracle listener...

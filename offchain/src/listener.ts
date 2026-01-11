@@ -49,6 +49,32 @@ const VERIFICATION_REQUESTED_EVENT = parseAbiItem(
   'event VerificationRequested(uint256 indexed requestId, address indexed owner, uint8 assetType, string location, string[] ipfsHashes, uint256 timestamp)'
 );
 
+// Contract ABI for reading request status
+const ORACLE_ROUTER_ABI = [
+  {
+    inputs: [{ name: '_requestId', type: 'uint256' }],
+    name: 'getRequest',
+    outputs: [
+      {
+        components: [
+          { name: 'requestId', type: 'uint256' },
+          { name: 'owner', type: 'address' },
+          { name: 'assetType', type: 'uint8' },
+          { name: 'location', type: 'string' },
+          { name: 'ipfsHashes', type: 'string[]' },
+          { name: 'status', type: 'uint8' }, // 0=PENDING, 1=PROCESSING, 2=VERIFIED, 3=REJECTED
+          { name: 'timestamp', type: 'uint256' },
+          { name: 'valuation', type: 'uint256' },
+          { name: 'confidence', type: 'uint256' }
+        ],
+        type: 'tuple'
+      }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  }
+] as const;
+
 /**
  * Start listening for verification requests
  */
@@ -103,8 +129,41 @@ export async function startListener() {
     logger.info(`   Total events found: ${allLogs.length}`);
     
     if (allLogs.length > 0) {
-      logger.info(`📜 Processing ${allLogs.length} historical request(s)...`);
+      logger.info(`📜 Filtering pending requests from ${allLogs.length} event(s)...`);
+      
+      // Filter out already verified requests
+      const pendingLogs = [];
       for (const log of allLogs) {
+        const { args } = log as any;
+        const requestId = args.requestId;
+        
+        try {
+          // Check request status from contract
+          const request = await publicClient.readContract({
+            address: ORACLE_ROUTER_ADDRESS,
+            abi: ORACLE_ROUTER_ABI,
+            functionName: 'getRequest',
+            args: [requestId]
+          });
+          
+          // Status: 0=PENDING, 1=PROCESSING, 2=VERIFIED, 3=REJECTED
+          if (request.status === 0) {
+            pendingLogs.push(log);
+            logger.info(`   ✓ Request #${requestId}: PENDING - will process`);
+          } else {
+            const statusNames = ['PENDING', 'PROCESSING', 'VERIFIED', 'REJECTED'];
+            logger.info(`   ⊘ Request #${requestId}: ${statusNames[request.status]} - skipping`);
+          }
+        } catch (error: any) {
+          logger.warn(`   ⚠️  Failed to check status for Request #${requestId}: ${error.message}`);
+          // If we can't check status, process it to be safe
+          pendingLogs.push(log);
+        }
+      }
+      
+      logger.info(`\n📋 Found ${pendingLogs.length} pending request(s) to process\n`);
+      
+      for (const log of pendingLogs) {
         await handleVerificationRequest(log);
       }
     } else {
@@ -124,7 +183,29 @@ export async function startListener() {
       event: VERIFICATION_REQUESTED_EVENT,
       onLogs: async (logs) => {
         for (const log of logs) {
-          await handleVerificationRequest(log);
+          // Check if request is still pending before processing
+          const { args } = log as any;
+          const requestId = args.requestId;
+          
+          try {
+            const request = await publicClient.readContract({
+              address: ORACLE_ROUTER_ADDRESS,
+              abi: ORACLE_ROUTER_ABI,
+              functionName: 'getRequest',
+              args: [requestId]
+            });
+            
+            // Only process if status is PENDING (0)
+            if (request.status === 0) {
+              await handleVerificationRequest(log);
+            } else {
+              const statusNames = ['PENDING', 'PROCESSING', 'VERIFIED', 'REJECTED'];
+              logger.info(`⊘ Skipping Request #${requestId}: Already ${statusNames[request.status]}`);
+            }
+          } catch (error: any) {
+            logger.warn(`⚠️  Failed to check status for Request #${requestId}, processing anyway: ${error.message}`);
+            await handleVerificationRequest(log);
+          }
         }
       }
     });
