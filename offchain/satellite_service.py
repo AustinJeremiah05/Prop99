@@ -14,8 +14,17 @@ load_dotenv()
 def fetch_satellite_data(latitude, longitude):
     """Fetch satellite imagery and metrics"""
     try:
-        # Initialize Earth Engine with project ID
+        # Authenticate and initialize Earth Engine
         project_id = os.getenv('GOOGLE_EARTH_ENGINE_PROJECT_ID')
+        
+        # Try to authenticate first (only needed once, but safe to call multiple times)
+        try:
+            ee.Authenticate()
+        except Exception as auth_error:
+            # If already authenticated, this will fail but we can continue
+            print(f"Note: Authentication status: {auth_error}", file=sys.stderr)
+        
+        # Initialize Earth Engine with project ID
         ee.Initialize(project=project_id)
         
         # Create point of interest
@@ -49,23 +58,34 @@ def fetch_satellite_data(latitude, longitude):
         # Calculate area
         area_sqm = roi.area(maxError=1).getInfo()
         
-        # Get RGB visualization URL
+        # Get RGB visualization URL (use getThumbUrl for public access)
         rgb_params = {
             'bands': ['B4', 'B3', 'B2'],
             'min': 0,
             'max': 3000,
-            'dimensions': 512
+            'dimensions': 512,
+            'region': roi.getInfo()['coordinates'],
+            'format': 'png'
         }
-        rgb_url = sentinel.getThumbURL(rgb_params)
         
         # Get NDVI visualization URL
         ndvi_params = {
             'min': 0,
             'max': 1,
             'palette': ['red', 'yellow', 'green'],
-            'dimensions': 512
+            'dimensions': 512,
+            'region': roi.getInfo()['coordinates'],
+            'format': 'png'
         }
-        ndvi_url = ndvi.getThumbURL(ndvi_params)
+        
+        # Generate public URLs
+        try:
+            rgb_url = sentinel.getThumbURL(rgb_params)
+            ndvi_url = ndvi.getThumbURL(ndvi_params)
+        except Exception as url_error:
+            print(f"Warning: Could not generate image URLs: {url_error}", file=sys.stderr)
+            rgb_url = None
+            ndvi_url = None
         
         # Get image metadata
         image_info = sentinel.getInfo()
