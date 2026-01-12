@@ -1870,3 +1870,50 @@ Ramesh ..."
 2026-01-12 22:40:28 ✅ REQUEST COMPLETED IN 158.66s
 2026-01-12 22:40:28 ═══════════════════════════════════════════════════════════════
 
+2026-01-13 00:43:08 ═══════════════════════════════════════════════════════════════
+2026-01-13 00:43:08 🤖 RWA ORACLE STARTING
+2026-01-13 00:43:08 ═══════════════════════════════════════════════════════════════
+2026-01-13 00:43:08 Oracle Address: 0xf4d1656069B739d652CdFC8Cc6ddE2Cd0b2d9A9C
+2026-01-13 00:43:08 Network: Testnet
+2026-01-13 00:43:08 ═══════════════════════════════════════════════════════════════
+
+2026-01-13 00:43:08 🚀 Starting Oracle Listener...
+2026-01-13 00:43:08 📡 Network: Mantle Sepolia Testnet
+2026-01-13 00:43:08 🔗 RPC URL: https://rpc.sepolia.mantle.xyz
+2026-01-13 00:43:08 📍 Oracle Router: 0xf4d1656069B739d652CdFC8Cc6ddE2Cd0b2d9A9C
+2026-01-13 00:43:09 📦 Current block: 33350256
+2026-01-13 00:43:09 🔍 Scanning for pending requests from recent blocks...
+2026-01-13 00:43:09    Scanning from block 33300256 to 33350256 in 10000 block chunks...
+2026-01-13 00:43:10    ✓ Blocks 33300256-33310256: Found 10 event(s)
+2026-01-13 00:43:11    ✓ Blocks 33340260-33350256: Found 13 event(s)
+2026-01-13 00:43:11    Total events found: 23
+2026-01-13 00:43:11 📜 Filtering pending requests from 23 event(s)...
+2026-01-13 00:43:11    ⊘ Request #20: VERIFIED - skipping
+2026-01-13 00:43:11    ⊘ Request #21: VERIFIED - skipping
+2026-01-13 00:43:12    ⊘ Request #22: VERIFIED - skipping
+2026-01-13 00:43:12    ⊘ Request #23: VERIFIED - skipping
+2026-01-13 00:43:12    ⊘ Request #24: VERIFIED - skipping
+2026-01-13 00:43:12    ⊘ Request #25: VERIFIED - skipping
+2026-01-13 00:43:13    ⊘ Request #26: VERIFIED - skipping
+2026-01-13 00:43:13    ⊘ Request #27: VERIFIED - skipping
+2026-01-13 00:43:13    ⊘ Request #28: VERIFIED - skipping
+2026-01-13 00:43:13    ⊘ Request #29: VERIFIED - skipping
+2026-01-13 00:43:14    ⊘ Request #30: VERIFIED - skipping
+2026-01-13 00:43:14    ⊘ Request #31: VERIFIED - skipping
+2026-01-13 00:43:14    ⊘ Request #32: VERIFIED - skipping
+2026-01-13 00:43:14    ⊘ Request #33: VERIFIED - skipping
+2026-01-13 00:43:15    ⊘ Request #34: VERIFIED - skipping
+2026-01-13 00:43:15    ⊘ Request #35: VERIFIED - skipping
+2026-01-13 00:43:15    ⊘ Request #36: VERIFIED - skipping
+2026-01-13 00:43:15    ⊘ Request #37: VERIFIED - skipping
+2026-01-13 00:43:16    ⊘ Request #38: VERIFIED - skipping
+2026-01-13 00:43:16    ⊘ Request #39: VERIFIED - skipping
+2026-01-13 00:43:16    ⊘ Request #40: VERIFIED - skipping
+2026-01-13 00:43:16    ⊘ Request #41: VERIFIED - skipping
+2026-01-13 00:43:17    ⊘ Request #42: VERIFIED - skipping
+2026-01-13 00:43:17 
+📋 Found 0 pending request(s) to process
+
+2026-01-13 00:43:17 👂 Now listening for new VerificationRequested events...
+2026-01-13 00:43:17 Press Ctrl+C to stop
+
