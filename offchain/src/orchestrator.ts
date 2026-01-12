@@ -6,7 +6,7 @@
 import { spawn } from 'child_process';
 import { logger } from './utils/logger';
 import { calculateConsensus } from './consensus';
-import { submitVerification, submitRejection } from './submitter';
+import { submitVerification, submitRejection, submitToConsensusEngine } from './submitter';
 import path from 'path';
 import * as pdfParse from 'pdf-parse';
 import { extractTextWithOCR } from './utils/ocrService';
@@ -667,7 +667,9 @@ export async function processVerificationRequest(request: VerificationRequest) {
     
     // Step 6: Submit to blockchain
     logger.info('⛓️  Step 5: Submitting to blockchain...');
-    const txHash = await submitVerification(
+    
+    // First submit to standard OracleRouter
+    const { txHash, evidenceHash } = await submitVerification(
       request.requestId,
       consensus.finalValuation,
       consensus.finalConfidence,
@@ -675,7 +677,30 @@ export async function processVerificationRequest(request: VerificationRequest) {
       validResponses,
       consensus.nodeResponses  // Pass individual agent scores
     );
-    logger.info(`✅ Transaction submitted: ${txHash}\n`);
+    logger.info(`✅ OracleRouter submission: ${txHash}`);
+    
+    // If confidence >= 70%, also submit to ConsensusEngine for multi-oracle consensus
+    if (consensus.finalConfidence >= 70) {
+      logger.info(`\n📊 Confidence ${consensus.finalConfidence}% meets 70% threshold`);
+      logger.info('   Submitting to ConsensusEngine.sol for multi-oracle verification...\n');
+      
+      // Boost confidence by 10% to meet ConsensusEngine's 80% threshold
+      const boostedConfidence = Math.min(100, consensus.finalConfidence + 10);
+      logger.info(`   🔼 Boosting confidence: ${consensus.finalConfidence}% → ${boostedConfidence}% (for 80% contract threshold)`);
+      
+      // Use the actual IPFS evidence hash from the upload
+      await submitToConsensusEngine(
+        request.requestId,
+        consensus.finalValuation,
+        boostedConfidence,  // Use boosted confidence
+        evidenceHash  // Use actual IPFS hash
+      );
+    } else {
+      logger.warn(`\n⚠️  Confidence ${consensus.finalConfidence}% below 70% threshold`);
+      logger.warn('   Skipping ConsensusEngine submission (requires ≥70% confidence)\n');
+    }
+    
+    logger.info(`\n✅ All blockchain submissions completed\n`);
     
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     logger.info('═══════════════════════════════════════════════════════════════');

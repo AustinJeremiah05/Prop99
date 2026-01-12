@@ -2,7 +2,7 @@
  * Blockchain Submitter
  * Submits verification results back to smart contract
  */
-import { createWalletClient, http, parseEther, defineChain } from 'viem';
+import { createWalletClient, http, parseEther, defineChain, createPublicClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { mantle } from 'viem/chains';
 import { logger } from './utils/logger';
@@ -92,6 +92,12 @@ const walletClient = createWalletClient({
   transport: http(RPC_URL)
 });
 
+// Create public client for reading chain data
+const publicClient = createPublicClient({
+  chain: IS_TESTNET ? mantleSepolia : mantle,
+  transport: http(RPC_URL)
+});
+
 // Contract ABI - OracleRouter.sol
 const ORACLE_ROUTER_ABI = [
   {
@@ -106,6 +112,24 @@ const ORACLE_ROUTER_ABI = [
     type: 'function'
   }
 ] as const;
+
+// ConsensusEngine ABI
+const CONSENSUS_ENGINE_ABI = [
+  {
+    inputs: [
+      { name: '_requestId', type: 'uint256' },
+      { name: '_valuation', type: 'uint256' },
+      { name: '_confidence', type: 'uint256' },
+      { name: '_evidenceHash', type: 'bytes32' }
+    ],
+    name: 'submitOracleResponse',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  }
+] as const;
+
+const CONSENSUS_ENGINE_ADDRESS = process.env.CONSENSUS_ENGINE_ADDRESS as `0x${string}` || '0x0000000000000000000000000000000000000000' as `0x${string}`;
 
 /**
  * Submit rejection to blockchain
@@ -145,6 +169,7 @@ export async function submitRejection(
 
 /**
  * Submit verification result to blockchain
+ * Returns both transaction hash and IPFS evidence hash
  */
 export async function submitVerification(
   requestId: string,
@@ -153,7 +178,7 @@ export async function submitVerification(
   satelliteData: any,
   agentResponses: any[],
   nodeResponses?: any[]  // Individual agent scores with names
-): Promise<string> {
+): Promise<{ txHash: string; evidenceHash: string }> {
   try {
     // Upload evidence to IPFS
     logger.info('📦 Uploading evidence to IPFS...');
@@ -183,7 +208,8 @@ export async function submitVerification(
     logger.info(`✅ Evidence uploaded: ${evidenceHash}`);
     
     // Store mapping for frontend access
-    storeEvidenceMapping(requestId, evidenceHash.replace('ipfs://', ''));
+    const cleanHash = evidenceHash.replace('ipfs://', '');
+    storeEvidenceMapping(requestId, cleanHash);
     
     // Submit to blockchain
     logger.info('📤 Submitting transaction to Mantle Sepolia...');
@@ -203,9 +229,9 @@ export async function submitVerification(
     logger.info(`⏳ Waiting for confirmation...`);
     
     // In production, you'd wait for the transaction receipt here
-    // For now, just return the hash
+    // For now, just return both hashes
     
-    return hash;
+    return { txHash: hash, evidenceHash: cleanHash };
     
   } catch (error) {
     logger.error('❌ Failed to submit verification:', error);
@@ -243,5 +269,88 @@ async function uploadEvidence(evidence: any): Promise<string> {
   } catch (error) {
     logger.error('❌ IPFS upload failed:', error);
     throw new Error(`IPFS upload failed: ${error}`);
+  }
+}
+
+/**
+ * Submit to ConsensusEngine.sol when confidence >= 70%
+ */
+export async function submitToConsensusEngine(
+  requestId: string,
+  valuation: number,
+  confidence: number,
+  evidenceHash: string
+): Promise<string> {
+  try {
+    if (!CONSENSUS_ENGINE_ADDRESS || CONSENSUS_ENGINE_ADDRESS === '0x0000000000000000000000000000000000000000') {
+      logger.warn('⚠️  ConsensusEngine address not configured, skipping consensus submission');
+      return '';
+    }
+
+    // Convert IPFS hash (CID) to bytes32
+    // IPFS v0 CIDs start with "Qm" and are base58 encoded
+    // For Solidity bytes32, we'll use the keccak256 hash of the full IPFS hash
+    // This is a common pattern for storing IPFS references on-chain
+    let evidenceBytes32: `0x${string}`;
+    
+    if (evidenceHash.startsWith('Qm')) {
+      // Remove "Qm" prefix and hash the remaining string
+      // Alternatively, we can just hash the full CID
+      const encoder = new TextEncoder();
+      const data = encoder.encode(evidenceHash);
+      
+      // Simple approach: Take first 32 bytes of the hash string as hex
+      // More robust: Use keccak256 hash of the CID
+      const hashBuffer = Buffer.from(evidenceHash);
+      const hex = hashBuffer.toString('hex').slice(0, 64).padEnd(64, '0');
+      evidenceBytes32 = `0x${hex}`;
+    } else {
+      // Already in hex format or other format
+      evidenceBytes32 = `0x${evidenceHash.replace('0x', '').slice(0, 64).padEnd(64, '0')}`;
+    }
+    
+    logger.info('📊 Submitting to ConsensusEngine.sol...');
+    logger.info(`   Contract: ${CONSENSUS_ENGINE_ADDRESS}`);
+    logger.info(`   IPFS Evidence: ${evidenceHash}`);
+    logger.info(`   Bytes32: ${evidenceBytes32}`);
+    logger.info(`   Confidence: ${confidence}% (meets 70% threshold)`);
+    
+    // Get current gas prices from the network
+    const feeData = await publicClient.estimateFeesPerGas();
+    
+    // Add 50% buffer to ensure transaction goes through even with pending transactions
+    const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas 
+      ? (feeData.maxPriorityFeePerGas * 150n) / 100n 
+      : undefined;
+    const maxFeePerGas = feeData.maxFeePerGas 
+      ? (feeData.maxFeePerGas * 150n) / 100n 
+      : undefined;
+    
+    logger.info(`   Gas: maxFee=${maxFeePerGas ? (Number(maxFeePerGas) / 1e9).toFixed(4) : 'auto'} gwei, maxPriorityFee=${maxPriorityFeePerGas ? (Number(maxPriorityFeePerGas) / 1e9).toFixed(4) : 'auto'} gwei (50% buffer)`);
+    
+    const hash = await walletClient.writeContract({
+      address: CONSENSUS_ENGINE_ADDRESS,
+      abi: CONSENSUS_ENGINE_ABI,
+      functionName: 'submitOracleResponse',
+      args: [
+        BigInt(requestId),
+        BigInt(valuation),
+        BigInt(confidence),
+        evidenceBytes32
+      ],
+      maxFeePerGas,
+      maxPriorityFeePerGas
+    });
+    
+    logger.info(`✅ ConsensusEngine submission successful: ${hash}`);
+    logger.info(`   Request will reach consensus when 2/3 oracles agree`);
+    
+    return hash;
+    
+  } catch (error: any) {
+    // Don't fail the entire process if consensus submission fails
+    logger.warn(`⚠️  ConsensusEngine submission failed: ${error.message}`);
+    logger.warn(`   Continuing with standard OracleRouter submission...`);
+    return '';
   }
 }

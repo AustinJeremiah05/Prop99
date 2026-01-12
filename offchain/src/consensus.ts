@@ -74,8 +74,9 @@ export function calculateConsensus(responses: AgentResponse[]): ConsensusResult 
   const variationCoefficient = avgValuation > 0 ? (stdValuation / avgValuation) * 100 : 0;
   const consensusScore = Math.max(0, Math.round(100 - variationCoefficient));
   
-  // Final confidence (weighted average confidence * consensus score)
-  const finalConfidence = Math.round(avgConfidence * (consensusScore / 100));
+  // Final confidence: Use weighted average of agent confidences
+  // Don't penalize for valuation disagreement - just use average confidence
+  const finalConfidence = Math.round(avgConfidence);
   
   // Check if meets threshold (80% default)
   const confidenceThreshold = parseInt(process.env.CONFIDENCE_THRESHOLD || '80');

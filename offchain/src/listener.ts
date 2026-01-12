@@ -265,6 +265,12 @@ async function handleVerificationRequest(log: Log) {
     logger.info(`📦 Block: ${log.blockNumber}`);
     logger.info('═══════════════════════════════════════════════════════════════\n');
     
+    // Skip Request #16 (already processed/rejected)
+    if (args.requestId.toString() === '16') {
+      logger.warn('⏭️  Skipping Request #16 (already processed)\n');
+      return;
+    }
+    
     // Process the request
     await processVerificationRequest({
       requestId: args.requestId.toString(),
