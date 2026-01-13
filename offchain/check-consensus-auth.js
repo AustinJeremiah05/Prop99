@@ -25,7 +25,7 @@ const mantleSepolia = defineChain({
 });
 
 const CONSENSUS_ENGINE_ADDRESS = process.env.CONSENSUS_ENGINE_ADDRESS;
-const oracleAccount = privateKeyToAccount(process.env.ORACLE_PRIVATE_KEY);
+const oracleAccount = privateKeyToAccount(process.env.OWNER_PRIVATE_KEY);
 
 const publicClient = createPublicClient({
   chain: mantleSepolia,

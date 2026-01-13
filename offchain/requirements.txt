@@ -2,7 +2,6 @@
 
 # Core
 python-dotenv>=1.0.0
-requests>=2.31.0
 
 # AI APIs
 groq>=0.4.0
