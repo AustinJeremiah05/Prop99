@@ -209,10 +209,10 @@ export default function Features() {
           <div className="flex justify-center items-center space-x-12">
             <div className="text-center">
               <div className="w-16 h-16 border-2 border-black flex items-center justify-center mb-3 relative">
-                <span className="text-sm font-mono">REQ</span>
+                <span className="text-sm font-mono">ASSET</span>
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-black animate-ping"></div>
               </div>
-              <span className="text-xs text-gray-500 font-mono">REQUEST</span>
+              <span className="text-xs text-gray-500 font-mono">SUBMISSION</span>
             </div>
 
             <div className="flex-1 h-px bg-gray-300 relative">
@@ -222,9 +222,9 @@ export default function Features() {
 
             <div className="text-center">
               <div className="w-16 h-16 border-2 border-black flex items-center justify-center mb-3">
-                <span className="text-sm font-mono">AI</span>
+                <span className="text-sm font-mono">VERIFY</span>
               </div>
-              <span className="text-xs text-gray-500 font-mono">PROCESS</span>
+              <span className="text-xs text-gray-500 font-mono">CONSENSUS</span>
             </div>
 
             <div className="flex-1 h-px bg-gray-300 relative">
@@ -234,10 +234,10 @@ export default function Features() {
 
             <div className="text-center">
               <div className="w-16 h-16 border-2 border-black flex items-center justify-center mb-3 relative">
-                <span className="text-sm font-mono">RES</span>
+                <span className="text-sm font-mono">TOKEN</span>
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-black animate-ping"></div>
               </div>
-              <span className="text-xs text-gray-500 font-mono">RESPONSE</span>
+              <span className="text-xs text-gray-500 font-mono">DEPLOYMENT</span>
             </div>
           </div>
         </div>

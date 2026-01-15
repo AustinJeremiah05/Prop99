@@ -15,24 +15,24 @@ export default function AISection() {
 
   const panels = [
     {
-      title: "WORKFLOW AUTOMATION",
-      description: "Intelligent process optimization and task scheduling with machine learning algorithms",
-      metrics: ["99.9% Uptime", "< 50ms Response", "Auto-scaling", "ML-powered"],
-      processes: ["Data Ingestion", "Pattern Recognition", "Decision Making", "Action Execution"],
+      title: "SATELLITE IMAGERY ANALYSIS",
+      description: "AI-powered satellite image processing for precise asset location verification and property condition assessment",
+      metrics: ["99.8% Accuracy", "< 2s Analysis", "Multi-spectral", "Geospatial Ready"],
+      processes: ["Image Ingestion", "Feature Detection", "Boundary Mapping", "Condition Assessment"],
       icon: Settings,
     },
     {
-      title: "PREDICTIVE ANALYTICS",
-      description: "Advanced pattern recognition and usage forecasting using deep learning models",
-      metrics: ["Real-time Analysis", "95% Accuracy", "Data-driven", "Trend Prediction"],
-      processes: ["Data Collection", "Feature Extraction", "Model Training", "Prediction Output"],
+      title: "VALUATION MODELING",
+      description: "Machine learning models analyzing market data, comparable sales, and property characteristics for accurate valuations",
+      metrics: ["99.2% Accuracy", "Real-time Calc", "Market-driven", "Confidence Scoring"],
+      processes: ["Data Collection", "Feature Engineering", "Model Inference", "Valuation Output"],
       icon: Brain,
     },
     {
-      title: "SMART PROVISIONING",
-      description: "Automated eSIM deployment and configuration management with zero-touch operations",
-      metrics: ["Zero-touch Deploy", "Bulk Operations", "Error Recovery", "Auto-healing"],
-      processes: ["Profile Creation", "Validation", "Deployment", "Monitoring"],
+      title: "CONSENSUS VALIDATION",
+      description: "Distributed verification across multiple AI oracles with weighted confidence scoring and automatic tokenization triggers",
+      metrics: ["2-of-3 Required", "Weighted Avg", "Confidence Scores", "Auto-Execution"],
+      processes: ["Oracle Analysis", "Score Weighting", "Consensus Check", "Token Minting"],
       icon: Zap,
     },
   ]
@@ -63,11 +63,11 @@ export default function AISection() {
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-20">
           <h2 className="text-5xl font-light tracking-wider mb-6 font-mono">
-            ONE<span className="font-bold">X</span>™ AI ENGINE
+            VERIFICATION<span className="font-bold"> AI ENGINE</span>
           </h2>
           <div className="w-32 h-px bg-black mx-auto mb-8"></div>
           <p className="text-gray-600 max-w-3xl mx-auto text-lg">
-            Advanced artificial intelligence powering next-generation eSIM management and automation
+            Advanced artificial intelligence powering real-world asset analysis and verification automation
           </p>
         </div>
 
@@ -131,156 +131,11 @@ export default function AISection() {
           </div>
 
           <div className="space-y-8">
-            <div className="relative h-96 border-2 border-gray-200 bg-gray-50 p-8">
-              <h4 className="font-mono font-bold text-lg mb-6">NEURAL NETWORK ACTIVITY</h4>
-              <div className="relative h-full">
-                <svg width="100%" height="100%" className="absolute inset-0">
-                  <g>
-                    {[0, 1, 2, 3].map((i) => (
-                      <circle
-                        key={`input-${i}`}
-                        cx="60"
-                        cy={60 + i * 60}
-                        r="8"
-                        fill="#000"
-                        opacity={processingData ? "0.8" : "0.4"}
-                      >
-                        {processingData && (
-                          <animate attributeName="opacity" values="0.4;0.8;0.4" dur="1s" repeatCount="indefinite" />
-                        )}
-                      </circle>
-                    ))}
-                  </g>
-
-                  <g>
-                    {[0, 1, 2, 3, 4].map((i) => (
-                      <circle
-                        key={`hidden1-${i}`}
-                        cx="180"
-                        cy={40 + i * 50}
-                        r="6"
-                        fill="#000"
-                        opacity={processingData ? "0.6" : "0.3"}
-                      >
-                        {processingData && (
-                          <animate
-                            attributeName="opacity"
-                            values="0.3;0.6;0.3"
-                            dur="1s"
-                            begin={`${i * 0.1}s`}
-                            repeatCount="indefinite"
-                          />
-                        )}
-                      </circle>
-                    ))}
-                  </g>
-
-                  <g>
-                    {[0, 1, 2].map((i) => (
-                      <circle
-                        key={`hidden2-${i}`}
-                        cx="300"
-                        cy={80 + i * 60}
-                        r="6"
-                        fill="#000"
-                        opacity={processingData ? "0.6" : "0.3"}
-                      >
-                        {processingData && (
-                          <animate
-                            attributeName="opacity"
-                            values="0.3;0.6;0.3"
-                            dur="1s"
-                            begin={`${i * 0.15}s`}
-                            repeatCount="indefinite"
-                          />
-                        )}
-                      </circle>
-                    ))}
-                  </g>
-
-                  <g>
-                    {[0, 1].map((i) => (
-                      <circle
-                        key={`output-${i}`}
-                        cx="420"
-                        cy={100 + i * 60}
-                        r="8"
-                        fill="#000"
-                        opacity={processingData ? "0.8" : "0.4"}
-                      >
-                        {processingData && (
-                          <animate
-                            attributeName="opacity"
-                            values="0.4;0.8;0.4"
-                            dur="1s"
-                            begin="0.5s"
-                            repeatCount="indefinite"
-                          />
-                        )}
-                      </circle>
-                    ))}
-                  </g>
-
-                  {[0, 1, 2, 3].map((i) =>
-                    [0, 1, 2, 3, 4].map((j) => (
-                      <line
-                        key={`conn-input-${i}-${j}`}
-                        x1="60"
-                        y1={60 + i * 60}
-                        x2="180"
-                        y2={40 + j * 50}
-                        stroke="#000"
-                        strokeWidth="1"
-                        opacity={processingData ? "0.3" : "0.1"}
-                      />
-                    )),
-                  )}
-
-                  {[0, 1, 2, 3, 4].map((i) =>
-                    [0, 1, 2].map((j) => (
-                      <line
-                        key={`conn-hidden1-${i}-${j}`}
-                        x1="180"
-                        y1={40 + i * 50}
-                        x2="300"
-                        y2={80 + j * 60}
-                        stroke="#000"
-                        strokeWidth="1"
-                        opacity={processingData ? "0.3" : "0.1"}
-                      />
-                    )),
-                  )}
-
-                  {[0, 1, 2].map((i) =>
-                    [0, 1].map((j) => (
-                      <line
-                        key={`conn-hidden2-${i}-${j}`}
-                        x1="300"
-                        y1={80 + i * 60}
-                        x2="420"
-                        y2={100 + j * 60}
-                        stroke="#000"
-                        strokeWidth="1"
-                        opacity={processingData ? "0.3" : "0.1"}
-                      />
-                    )),
-                  )}
-                </svg>
-
-                <div className="absolute bottom-4 left-0 right-0 flex justify-between text-xs font-mono text-gray-500">
-                  <span>INPUT</span>
-                  <span>HIDDEN</span>
-                  <span>HIDDEN</span>
-                  <span>OUTPUT</span>
-                </div>
-              </div>
-            </div>
-
             <div className="grid grid-cols-2 gap-6">
               <div className="border-2 border-gray-200 p-6 bg-white">
-                <div className="text-xs font-mono text-gray-500 mb-2">THROUGHPUT</div>
+                <div className="text-xs font-mono text-gray-500 mb-2">ASSETS ANALYZED</div>
                 <div className="text-3xl font-mono font-bold">{metrics.throughput.toLocaleString()}</div>
-                <div className="text-xs text-gray-500">req/sec</div>
+                <div className="text-xs text-gray-500">verified</div>
               </div>
               <div className="border-2 border-gray-200 p-6 bg-white">
                 <div className="text-xs font-mono text-gray-500 mb-2">ACCURACY</div>
@@ -288,9 +143,9 @@ export default function AISection() {
                 <div className="text-xs text-gray-500">prediction</div>
               </div>
               <div className="border-2 border-gray-200 p-6 bg-white">
-                <div className="text-xs font-mono text-gray-500 mb-2">LATENCY</div>
-                <div className="text-3xl font-mono font-bold">{metrics.latency}ms</div>
-                <div className="text-xs text-gray-500">avg response</div>
+                <div className="text-xs font-mono text-gray-500 mb-2">AVG ANALYSIS TIME</div>
+                <div className="text-3xl font-mono font-bold">{metrics.latency}s</div>
+                <div className="text-xs text-gray-500">per asset</div>
               </div>
               <div className="border-2 border-gray-200 p-6 bg-white">
                 <div className="text-xs font-mono text-gray-500 mb-2">EFFICIENCY</div>

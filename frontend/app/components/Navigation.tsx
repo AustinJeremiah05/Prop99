@@ -175,9 +175,19 @@ export default function Navigation({ variant = 'default' }: NavigationProps) {
             </button>
           </div>
 
-          <div className="hidden sm:flex items-center space-x-2 shrink-0">
-            <div className="w-2 h-2 bg-black rounded-full animate-pulse"></div>
-            <span className="text-xs font-mono">LIVE</span>
+          <div className="hidden sm:flex items-center space-x-4 shrink-0">
+            <a
+              href="https://github.com/austinjeremiah/Prop99/blob/main/Readme.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 bg-black text-white text-xs font-mono rounded border-2 border-black hover:bg-white hover:text-black transition-all duration-200"
+            >
+              DOCUMENT
+            </a>
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-black rounded-full animate-pulse"></div>
+              <span className="text-xs font-mono">LIVE</span>
+            </div>
           </div>
         </div>
       </div>
