@@ -161,6 +161,14 @@ export async function submitRejection(
     logger.info(`   Reason: ${reason}`);
     logger.info(`   Method: submitVerification with $0 valuation and 1% confidence (rejection)`);
     
+    // Get the current nonce explicitly to avoid conflicts
+    const nonce = await publicClient.getTransactionCount({
+      address: account.address,
+      blockTag: 'pending',
+    });
+
+    logger.info(`   🔢 Using nonce: ${nonce}`);
+
     // Submit as verification with 0 valuation and 1% confidence (indicates rejection)
     // Contract requires confidence > 0, so we use 1 (minimum) to indicate rejection
     const hash = await walletClient.writeContract({
@@ -171,7 +179,8 @@ export async function submitRejection(
         BigInt(requestId),
         BigInt(0),  // 0 valuation = rejection
         BigInt(1)   // 1% confidence = rejection (minimum allowed by contract)
-      ]
+      ],
+      nonce,
     });
     
     logger.info(`✅ Rejection transaction sent: ${hash}`);
@@ -231,6 +240,14 @@ export async function submitVerification(
     // Submit to blockchain
     logger.info('📤 Submitting transaction to Mantle Sepolia...');
     
+    // Get the current nonce explicitly to avoid conflicts
+    const nonce = await publicClient.getTransactionCount({
+      address: account.address,
+      blockTag: 'pending',
+    });
+
+    logger.info(`   🔢 Using nonce: ${nonce}`);
+
     const hash = await walletClient.writeContract({
       address: ORACLE_ROUTER_ADDRESS,
       abi: ORACLE_ROUTER_ABI,
@@ -239,8 +256,8 @@ export async function submitVerification(
         BigInt(requestId),
         BigInt(valuation),
         BigInt(confidence)
-      ]
-      // Let viem estimate gas automatically
+      ],
+      nonce,
     });
     
     logger.info(`⏳ Waiting for confirmation...`);
@@ -338,6 +355,14 @@ export async function submitToConsensusEngine(
     const gasPrice = await publicClient.getGasPrice();
     logger.info(`   Current gas price: ${(gasPrice / 1_000_000_000n)} gwei`);
     
+    // Get the current nonce explicitly to avoid conflicts
+    const nonce = await publicClient.getTransactionCount({
+      address: account.address,
+      blockTag: 'pending',
+    });
+
+    logger.info(`   🔢 Using nonce: ${nonce}`);
+    
     const hash = await walletClient.writeContract({
       address: CONSENSUS_ENGINE_ADDRESS,
       abi: CONSENSUS_ENGINE_ABI,
@@ -348,8 +373,8 @@ export async function submitToConsensusEngine(
         BigInt(confidence),
         evidenceBytes32
       ],
-      gasPrice: gasPrice // Use current gas price, not estimate
-      // Let viem manage nonce automatically
+      gasPrice: gasPrice, // Use current gas price, not estimate
+      nonce,
     });
     
     logger.info(`✅ ConsensusEngine submission successful: ${hash}`);
@@ -367,10 +392,17 @@ export async function submitToConsensusEngine(
       await new Promise(resolve => setTimeout(resolve, 5000));
       
       try {
-        // Retry with fresh gas price
+        // Retry with fresh gas price and nonce
         const gasPrice = await publicClient.getGasPrice();
         const newPrice = (gasPrice * 110n) / 100n; // 10% higher
         logger.info(`   Retrying with higher gas price: ${(newPrice / 1_000_000_000n)} gwei`);
+        
+        // Get fresh nonce for retry
+        const retryNonce = await publicClient.getTransactionCount({
+          address: account.address,
+          blockTag: 'pending',
+        });
+        logger.info(`   🔢 Retry nonce: ${retryNonce}`);
         
         const retryHash = await walletClient.writeContract({
           address: CONSENSUS_ENGINE_ADDRESS,
@@ -382,7 +414,8 @@ export async function submitToConsensusEngine(
             BigInt(confidence),
             evidenceBytes32
           ],
-          gasPrice: newPrice
+          gasPrice: newPrice,
+          nonce: retryNonce,
         });
         
         logger.info(`✅ ConsensusEngine retry successful: ${retryHash}`);
@@ -435,6 +468,14 @@ export async function anchorToEthereumL1(
     logger.info(`   L1 Block Number: ${l1BlockNumber}`);
     logger.info(`   Verification Hash: ${verificationHash}`);
     
+    // Get the current nonce explicitly to avoid conflicts
+    const nonce = await publicClient.getTransactionCount({
+      address: account.address,
+      blockTag: 'pending',
+    });
+
+    logger.info(`   🔢 Using nonce: ${nonce}`);
+    
     const hash = await walletClient.writeContract({
       address: VERIFICATION_ANCHOR_ADDRESS,
       abi: VERIFICATION_ANCHOR_ABI,
@@ -443,7 +484,8 @@ export async function anchorToEthereumL1(
         BigInt(requestId),
         verificationHash,
         BigInt(l1BlockNumber)
-      ]
+      ],
+      nonce,
     });
     
     logger.info(`✅ L1 Anchoring successful: ${hash}`);

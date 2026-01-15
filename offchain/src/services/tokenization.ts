@@ -146,11 +146,20 @@ async function mintTokens(tokenAddress: string, toAddress: string, amount: bigin
     logger.info(`      To: ${toAddress}`);
     logger.info(`      Amount: ${amount.toString()}`);
 
+    // Get the current nonce explicitly to avoid conflicts
+    const nonce = await publicClient.getTransactionCount({
+      address: ownerAccount.address,
+      blockTag: 'pending',
+    });
+
+    logger.info(`      🔢 Using nonce: ${nonce}`);
+
     const hash = await ownerWalletClient.writeContract({
       address: tokenAddress as `0x${string}`,
       abi: RWATokenArtifact.abi,
       functionName: 'mint',
       args: [toAddress as `0x${string}`, amount],
+      nonce,
     });
 
     logger.info(`      Transaction: ${hash}`);
@@ -201,6 +210,14 @@ async function deployRWAToken(request: TokenizationRequest, valuationInWei: bigi
       );
     }
 
+    // Get the current nonce explicitly to avoid conflicts
+    const nonce = await publicClient.getTransactionCount({
+      address: ownerAccount.address,
+      blockTag: 'pending', // Use pending to include unconfirmed transactions
+    });
+
+    logger.info(`   🔢 Using nonce: ${nonce}`);
+
     const hash = await ownerWalletClient.deployContract({
       abi: RWATokenArtifact.abi,
       bytecode: RWATokenArtifact.bytecode as `0x${string}`,
@@ -212,6 +229,7 @@ async function deployRWAToken(request: TokenizationRequest, valuationInWei: bigi
         ASSET_REGISTRY_ADDRESS as `0x${string}`,
         ownerAccount.address,  // Use OWNER account, not request.owner
       ],
+      nonce, // Explicitly set nonce
     });
 
     logger.info(`   ✅ Deployment transaction: ${hash}`);
@@ -309,11 +327,20 @@ export async function setOwnerCompliance(ownerAddress: string): Promise<boolean>
   try {
     logger.info('   🔐 Setting KYC compliance status...');
 
+    // Get the current nonce explicitly to avoid conflicts
+    const nonce = await publicClient.getTransactionCount({
+      address: oracleAccount.address,
+      blockTag: 'pending',
+    });
+
+    logger.info(`      🔢 Using nonce: ${nonce}`);
+
     const hash = await walletClient.writeContract({
       address: COMPLIANCE_MODULE_ADDRESS,
       abi: ComplianceModuleArtifact.abi,
       functionName: 'setKYCStatus',
       args: [ownerAddress as `0x${string}`, true, 0], // 0 = unrestricted jurisdiction
+      nonce,
     });
 
     logger.info(`      Transaction: ${hash}`);
