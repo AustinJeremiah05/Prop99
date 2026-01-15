@@ -9,10 +9,15 @@ export default function Hero() {
   const [rotation, setRotation] = useState(0)
   const [pulseScale, setPulseScale] = useState(1)
   const [connectionNodes, setConnectionNodes] = useState<Array<{ x: number; y: number; active: boolean }>>([])
+  const [isMounted, setIsMounted] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { open } = useAppKit()
   const { isConnected, address } = useAccount()
   const router = useRouter()
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // Debug logging
   useEffect(() => {
@@ -272,7 +277,7 @@ export default function Hero() {
         </div>
 
         {/* Wallet Connection Status */}
-        {isConnected && (
+        {isMounted && isConnected && (
           <div className="flex justify-center mb-4">
             <div className="px-4 py-2 bg-green-100 border-2 border-green-500 rounded-lg text-sm font-mono">
               <span className="text-green-700">✓ Connected: {address?.slice(0, 6)}...{address?.slice(-4)}</span>

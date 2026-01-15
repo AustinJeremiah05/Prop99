@@ -9,11 +9,11 @@ export default function Features() {
 
   const features = [
     {
-      title: "ICCID SEARCH",
+      title: "ASSET VERIFICATION",
       description:
-        "Real-time ICCID validation and lookup system with global database integration and instant verification protocols",
-      code: "SEARCH_001",
-      metrics: { accuracy: "99.9%", speed: "<100ms", coverage: "Global", database: "Real-time" },
+        "AI-powered real-world asset verification through satellite imagery analysis with multi-oracle consensus validation and cryptographic proof anchoring to Ethereum",
+      code: "VERIFY_001",
+      metrics: { consensus: "2-of-3", accuracy: "99.8%", anchoring: "Ethereum L1", storage: "Mantle DA" },
       status: "ACTIVE",
       icon: Search,
       schematic: (
@@ -27,11 +27,11 @@ export default function Features() {
       ),
     },
     {
-      title: "SM-DP+ INTEGRATION",
+      title: "ORACLE CONSENSUS ENGINE",
       description:
-        "Seamless subscription manager integration for profile management with GSMA-compliant protocols and security",
-      code: "SMDP_002",
-      metrics: { compliance: "SGP.22", security: "TLS 1.3", availability: "24/7", profiles: "Unlimited" },
+        "Multi-node consensus mechanism validating AI analysis with weighted average valuation calculations and confidence scoring across distributed oracles",
+      code: "CONSENSUS_002",
+      metrics: { nodes: "3 oracles", validation: "Weighted", confidence: "Real-time", finality: "Instant" },
       status: "OPERATIONAL",
       icon: Cpu,
       schematic: (
@@ -44,11 +44,11 @@ export default function Features() {
       ),
     },
     {
-      title: "QR CODE ACTIVATION",
+      title: "RWA TOKENIZATION",
       description:
-        "Instant eSIM activation through secure QR code generation with encrypted profile delivery and validation",
-      code: "QR_003",
-      metrics: { generation: "Instant", encryption: "AES-256", success: "99.8%", delivery: "Secure" },
+        "Automatic ERC-20 token generation for verified assets with compliance controls, transfer restrictions, and KYC whitelisting on Mantle blockchain",
+      code: "TOKEN_003",
+      metrics: { standard: "ERC-20", deployment: "Instant", compliance: "KYC-ready", chain: "Mantle" },
       status: "READY",
       icon: QrCode,
       schematic: (
@@ -112,7 +112,7 @@ export default function Features() {
           <h2 className="text-5xl font-light tracking-wider mb-6 font-mono">CORE FEATURES</h2>
           <div className="w-32 h-px bg-black mx-auto mb-8"></div>
           <p className="text-gray-600 max-w-3xl mx-auto text-lg">
-            Advanced eSIM management capabilities powered by AI and GSMA compliance standards
+            Advanced RWA tokenization powered by AI verification and Mantle blockchain infrastructure
           </p>
         </div>
 
